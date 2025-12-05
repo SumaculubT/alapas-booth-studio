@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.cloudworkstations.dev',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
   // In a future major version of Next.js, you will need to explicitly configure
