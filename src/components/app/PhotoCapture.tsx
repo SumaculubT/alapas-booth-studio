@@ -148,8 +148,11 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   
   if (captureState === 'welcome') {
     return (
-       <div className="fixed inset-0 bg-black cursor-pointer" onClick={startSession}>
+       <div className="fixed inset-0 bg-black cursor-pointer" onClick={(e) => { if (e.target === e.currentTarget) startSession();}}>
           <Image src={welcomeImage} alt="Welcome to the photo booth" layout="fill" objectFit="cover" placeholder="blur" />
+           <Button onClick={onExit} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10">
+            <X size={32} />
+          </Button>
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white text-center p-4 bg-black/50 rounded-xl">
              <h1 className="text-2xl font-bold">Touch the screen or press spacebar to start!</h1>
           </div>

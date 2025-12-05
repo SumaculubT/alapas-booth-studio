@@ -87,7 +87,6 @@ function PhotoBoothSession() {
   };
   
   const handleExit = () => {
-    // on restart, we take the user back to the home page, not the studio.
     router.push('/');
   };
 
@@ -105,17 +104,13 @@ function PhotoBoothSession() {
       case 'preview':
         if (templateLayout) {
           return (
-            <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8">
+            <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8 pt-16">
               <div className="w-full max-w-md mx-auto">
-                 <header className="flex justify-center items-center mb-8 relative">
-                   <h1 className="text-2xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                    Your Masterpiece
-                  </h1>
-                </header>
                 <PhotoStripPreview
                   templateLayout={templateLayout}
                   photos={capturedPhotos}
                   onRestart={handleRestart}
+                  onExit={handleExit}
                   eventSize={eventSize}
                 />
                  <footer className="text-center mt-8 text-sm text-muted-foreground">

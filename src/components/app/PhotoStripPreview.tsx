@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, RefreshCw, X, Expand } from "lucide-react";
+import { Download, Share2, RefreshCw, X, Expand, Home } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -27,6 +27,7 @@ interface PhotoStripPreviewProps {
   templateLayout: Layer[];
   photos: string[];
   onRestart: () => void;
+  onExit: () => void;
   eventSize: "2x6" | "4x6" | string;
 }
 
@@ -134,6 +135,7 @@ export default function PhotoStripPreview({
   templateLayout,
   photos,
   onRestart,
+  onExit,
   eventSize,
 }: PhotoStripPreviewProps) {
   const [isGenerating, setIsGenerating] = useState(true);
@@ -143,6 +145,7 @@ export default function PhotoStripPreview({
   useEffect(() => {
     if (photos.length === 0 || !templateLayout) return;
 
+    setIsGenerating(true);
     // Generate a smaller preview quickly for display
     const previewWidth = eventSize === '4x6' ? 800 : 600;
     generateStrip(templateLayout, photos, eventSize, previewWidth)
@@ -230,7 +233,7 @@ export default function PhotoStripPreview({
         )}
       </div>
 
-      <div className="max-w-lg mx-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="max-w-lg mx-auto grid grid-cols-2 sm:grid-cols-3 gap-2">
         <Button onClick={onRestart} variant="outline" className="w-full">
           <RefreshCw className="mr-2 h-4 w-4" /> Start Over (Enter)
         </Button>
@@ -245,6 +248,9 @@ export default function PhotoStripPreview({
             <Share2 className="mr-2 h-4 w-4" /> Share
           </Button>
         )}
+         <Button onClick={onExit} variant="secondary" className="w-full sm:col-span-1">
+          <Home className="mr-2 h-4 w-4" /> Back to Home
+        </Button>
       </div>
 
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
@@ -265,5 +271,3 @@ export default function PhotoStripPreview({
     </div>
   );
 }
-
-    
