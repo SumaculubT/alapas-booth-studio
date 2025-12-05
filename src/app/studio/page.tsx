@@ -63,6 +63,8 @@ const photoBoxColors = [
   "bg-pink-500/30",
 ];
 
+const SNAP_THRESHOLD = 5;
+
 
 function SnapStripStudio() {
   const router = useRouter();
@@ -105,9 +107,28 @@ function SnapStripStudio() {
 
     // Handle Dragging
     if (draggingLayer) {
-      const newX = mouseX - draggingLayer.initialX;
-      const newY = mouseY - draggingLayer.initialY;
-      updateLayer(draggingLayer.id, { x: newX, y: newY });
+        const draggedLayer = layers.find(l => l.id === draggingLayer.id);
+        if (!draggedLayer) return;
+
+        let newX = mouseX - draggingLayer.initialX;
+        let newY = mouseY - draggingLayer.initialY;
+        
+        // Snapping logic
+        const canvasCenterX = canvasSize.width / 2;
+        const canvasCenterY = canvasSize.height / 2;
+        const layerCenterX = newX + draggedLayer.width / 2;
+        const layerCenterY = newY + draggedLayer.height / 2;
+
+        // Snap to canvas center
+        if (Math.abs(layerCenterX - canvasCenterX) < SNAP_THRESHOLD) newX = canvasCenterX - draggedLayer.width / 2;
+        if (Math.abs(layerCenterY - canvasCenterY) < SNAP_THRESHOLD) newY = canvasCenterY - draggedLayer.height / 2;
+        // Snap to canvas edges
+        if (Math.abs(newX) < SNAP_THRESHOLD) newX = 0;
+        if (Math.abs(newY) < SNAP_THRESHOLD) newY = 0;
+        if (Math.abs((newX + draggedLayer.width) - canvasSize.width) < SNAP_THRESHOLD) newX = canvasSize.width - draggedLayer.width;
+        if (Math.abs((newY + draggedLayer.height) - canvasSize.height) < SNAP_THRESHOLD) newY = canvasSize.height - draggedLayer.height;
+
+        updateLayer(draggingLayer.id, { x: newX, y: newY });
     }
 
     // Handle Resizing
@@ -143,7 +164,7 @@ function SnapStripStudio() {
             setResizingState(prev => prev ? { ...prev, initialX: mouseX, initialY: mouseY } : null);
         }
     }
-  }, [draggingLayer, resizingState, layers, updateLayer]);
+  }, [draggingLayer, resizingState, layers, updateLayer, canvasSize]);
   
   const handleMouseUp = useCallback(() => {
     setDraggingLayer(null);
@@ -431,7 +452,7 @@ function SnapStripStudio() {
                     <div
                         key={layer.id}
                         onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                        className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }`}
+                        className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "" }`}
                         style={layerStyle}
                     >
                         {layer.type === 'template' && layer.url && (
