@@ -87,7 +87,8 @@ function PhotoBoothSession() {
   };
   
   const handleExit = () => {
-    router.push('/studio');
+    // on restart, we take the user back to the home page, not the studio.
+    router.push('/');
   };
 
   const renderStep = () => {

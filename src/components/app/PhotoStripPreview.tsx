@@ -1,11 +1,12 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, RefreshCw } from "lucide-react";
+import { Download, Share2, RefreshCw, X, Expand } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface Layer {
   id: string;
@@ -38,6 +39,7 @@ export default function PhotoStripPreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isGenerating, setIsGenerating] = useState(true);
   const [finalImage, setFinalImage] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const templateLayer = templateLayout.find(l => l.type === 'template');
   const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
@@ -173,6 +175,22 @@ export default function PhotoStripPreview({
     }
   };
 
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      onRestart();
+    } else if (event.key === ' ') {
+      event.preventDefault();
+      setIsFullscreen(true);
+    }
+  }, [onRestart]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
   const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/6]";
 
   return (
@@ -194,10 +212,15 @@ export default function PhotoStripPreview({
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Button onClick={onRestart} variant="outline" className="w-full">
-          <RefreshCw className="mr-2 h-4 w-4" /> Start Over
+          <RefreshCw className="mr-2 h-4 w-4" /> Start Over (Enter)
         </Button>
+        <Button onClick={() => setIsFullscreen(true)} disabled={isGenerating} className="w-full">
+          <Expand className="mr-2 h-4 w-4" /> Fullscreen (Space)
+        </Button>
+      </div>
+       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Button onClick={handleDownload} disabled={isGenerating} className="w-full">
           <Download className="mr-2 h-4 w-4" /> Download
         </Button>
@@ -207,6 +230,22 @@ export default function PhotoStripPreview({
           </Button>
         )}
       </div>
+
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+        <DialogContent className="max-w-7xl h-[90vh] bg-transparent border-none shadow-none p-0">
+          {finalImage && (
+             <Image
+              src={finalImage}
+              alt="Final photo strip fullscreen"
+              fill
+              className="object-contain"
+            />
+          )}
+           <Button onClick={() => setIsFullscreen(false)} variant="ghost" size="icon" className="absolute top-4 right-4 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white hover:text-white z-10">
+            <X size={32} />
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
