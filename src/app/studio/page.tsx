@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
 import { setTemplateImage, clearTemplateImage } from "@/lib/template-cache";
+import defaultTemplate from "@/lib/templates/century_layout.png";
 
 interface Layer {
   id: string;
@@ -69,6 +70,7 @@ const photoBoxColors = [
 ];
 
 const SNAP_THRESHOLD = 5;
+const USER_TEMPLATE_KEY = 'snapstrip-user-template';
 
 
 function SnapStripStudio() {
@@ -86,7 +88,8 @@ function SnapStripStudio() {
     if (isLandscape) {
       return { width: 600, height: 400 };
     }
-    return { width: 400, height: 1200 };
+    // This should match the aspect ratio of the default template
+    return { width: 600, height: 1800 };
   };
 
   const [canvasSize, setCanvasSize] = useState(getInitialCanvasSize());
@@ -96,6 +99,48 @@ function SnapStripStudio() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [zoom, setZoom] = useState(0.5);
+
+  const setDefaultTemplate = (templateUrl: string, width: number, height: number) => {
+    const newLayer: Layer = {
+      id: `template-${Date.now()}`,
+      type: "template",
+      name: 'Template Image',
+      x: 0,
+      y: 0,
+      width: width,
+      height: height,
+      rotation: 0,
+      isVisible: true,
+      isLocked: false,
+      url: templateUrl,
+    };
+    setCanvasSize({ width, height });
+    setLayers(prev => [newLayer, ...prev.filter(l => l.type !== 'template')]);
+    setSelectedLayer(newLayer.id);
+  };
+  
+  useEffect(() => {
+    const savedUserTemplate = localStorage.getItem(USER_TEMPLATE_KEY);
+    if (savedUserTemplate) {
+       const img = new window.Image();
+       img.onload = () => {
+           setDefaultTemplate(savedUserTemplate, img.width, img.height);
+       };
+       img.src = savedUserTemplate;
+    } else if (defaultTemplate) {
+        // Use the imported default template
+        const img = new window.Image();
+        img.onload = () => {
+          // Adjust canvas size to match the default template's aspect ratio
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          const newWidth = isLandscape ? 600 : 400;
+          const newHeight = isLandscape ? 600 / aspectRatio : 400 / aspectRatio;
+          setCanvasSize({ width: newWidth, height: newHeight });
+          setDefaultTemplate(img.src, newWidth, newHeight);
+        };
+        img.src = defaultTemplate.src;
+    }
+}, [isLandscape]);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -216,22 +261,25 @@ function SnapStripStudio() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const newLayer: Layer = {
-          id: `template-${Date.now()}`,
-          type: "template",
-          name: 'Template Image',
-          x: 0,
-          y: 0,
-          width: canvasSize.width,
-          height: canvasSize.height,
-          rotation: 0,
-          isVisible: true,
-          isLocked: false,
-          url: reader.result as string,
-        };
-        // Add template as the first layer (bottom of the stack)
-        setLayers(prev => [newLayer, ...prev]);
-        setSelectedLayer(newLayer.id);
+        const dataUrl = reader.result as string;
+        try {
+          localStorage.setItem(USER_TEMPLATE_KEY, dataUrl);
+
+          const img = new window.Image();
+          img.onload = () => {
+            // Adjust canvas size to match the uploaded template's aspect ratio
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            const newWidth = isLandscape ? 600 : 400;
+            const newHeight = isLandscape ? 600 / aspectRatio : 400 / aspectRatio;
+            setCanvasSize({ width: newWidth, height: newHeight });
+            setDefaultTemplate(dataUrl, newWidth, newHeight);
+          };
+          img.src = dataUrl;
+
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
+          alert("Could not save template. It might be too large for local storage.");
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -259,7 +307,24 @@ function SnapStripStudio() {
   };
   
   const removeLayer = (id: string) => {
-    setLayers(layers.filter(layer => layer.id !== id));
+    const layer = layers.find(l => l.id === id);
+    if(layer?.type === 'template') {
+        localStorage.removeItem(USER_TEMPLATE_KEY);
+        // Optionally, reset to the imported default template
+        const img = new window.Image();
+        img.onload = () => {
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          const newWidth = isLandscape ? 600 : 400;
+          const newHeight = isLandscape ? 600 / aspectRatio : 400 / aspectRatio;
+          setCanvasSize({ width: newWidth, height: newHeight });
+          setDefaultTemplate(img.src, newWidth, newHeight);
+        };
+        img.src = defaultTemplate.src;
+
+    } else {
+       setLayers(layers.filter(layer => layer.id !== id));
+    }
+    
     if (selectedLayer === id) {
         setSelectedLayer(null);
     }
@@ -575,21 +640,21 @@ function SnapStripStudio() {
         </SidebarHeader>
         <SidebarContent>
             <div className="p-4 space-y-6">
-                {!hasTemplate && (
-                    <Label
-                        htmlFor="template-upload"
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                    >
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                        <p className="mb-2 text-sm text-muted-foreground">
-                            <span className="font-semibold text-primary">Upload Template</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">PNG recommended</p>
-                        </div>
-                        <Input id="template-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handleTemplateUpload} />
-                    </Label>
-                )}
+                
+                <Label
+                    htmlFor="template-upload"
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                >
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                    <p className="mb-2 text-sm text-muted-foreground">
+                        <span className="font-semibold text-primary">Upload New Template</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">Replaces current template</p>
+                    </div>
+                    <Input id="template-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handleTemplateUpload} />
+                </Label>
+                
 
                 {selectedLayerData && (
                     <div className="space-y-4">
@@ -653,3 +718,4 @@ export default function StudioPage() {
     
 
     
+
