@@ -353,8 +353,22 @@ function SnapStripStudio() {
   const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
 
   const handleStartSession = (settings: { countdown: number; filter: string }) => {
-    // Save template to session storage
-    sessionStorage.setItem('snapstrip-template', JSON.stringify(layers));
+    // Separate the template image URL from the rest of the layer data to avoid storage quota issues.
+    const templateLayer = layers.find(l => l.type === 'template');
+    const layoutWithoutTemplateUrl = layers.map(l => {
+      if (l.type === 'template') {
+        const { url, ...rest } = l;
+        return rest;
+      }
+      return l;
+    });
+
+    if (templateLayer && templateLayer.url) {
+      sessionStorage.setItem('snapstrip-template-image', templateLayer.url);
+    } else {
+      sessionStorage.removeItem('snapstrip-template-image');
+    }
+    sessionStorage.setItem('snapstrip-layout', JSON.stringify(layoutWithoutTemplateUrl));
 
     const queryParams = new URLSearchParams({
         size: eventSize,

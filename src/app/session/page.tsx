@@ -37,14 +37,40 @@ function PhotoBoothSession() {
   const countdown = Number(searchParams.get('countdown')) || 5;
 
   useEffect(() => {
-    // Load the template from session storage
-    const savedTemplate = sessionStorage.getItem('snapstrip-template');
-    if (savedTemplate) {
-      setTemplateLayout(JSON.parse(savedTemplate));
+    // Load the layout and template from session storage
+    const savedLayout = sessionStorage.getItem('snapstrip-layout');
+    const savedTemplateImage = sessionStorage.getItem('snapstrip-template-image');
+
+    if (savedLayout) {
+      let layout = JSON.parse(savedLayout);
+      if (savedTemplateImage) {
+        const templateLayer = layout.find((l: Layer) => l.type === 'template');
+        if (templateLayer) {
+          templateLayer.url = savedTemplateImage;
+        } else {
+          // If no template layer exists, create one
+          const isLandscape = eventSize === '4x6';
+          layout.unshift({
+            id: 'template-from-storage',
+            type: 'template',
+            name: 'Template Image',
+            x: 0,
+            y: 0,
+            width: isLandscape ? 600 : 400,
+            height: isLandscape ? 400 : 1200,
+            rotation: 0,
+            isVisible: true,
+            isLocked: false,
+            url: savedTemplateImage,
+          });
+        }
+      }
+      setTemplateLayout(layout);
     }
-    // Directly go to capture step, skipping template selection
+    
+    // Directly go to capture step
     setStep('capture');
-  }, []);
+  }, [eventSize]);
 
 
   const handleCaptureComplete = (photos: string[]) => {
