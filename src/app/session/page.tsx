@@ -8,6 +8,7 @@ import PhotoStripPreview from '@/components/app/PhotoStripPreview';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { getTemplateImage } from '@/lib/template-cache';
 
 type Layer = {
   id: string;
@@ -37,9 +38,9 @@ function PhotoBoothSession() {
   const countdown = Number(searchParams.get('countdown')) || 5;
 
   useEffect(() => {
-    // Load the layout and template from session storage
+    // Load the layout and template from storage/cache
     const savedLayout = sessionStorage.getItem('snapstrip-layout');
-    const savedTemplateImage = sessionStorage.getItem('snapstrip-template-image');
+    const savedTemplateImage = getTemplateImage();
 
     if (savedLayout) {
       let layout = JSON.parse(savedLayout);

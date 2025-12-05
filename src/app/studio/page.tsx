@@ -40,6 +40,7 @@ import {
   Maximize,
 } from "lucide-react";
 import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
+import { setTemplateImage, clearTemplateImage } from "@/lib/template-cache";
 
 interface Layer {
   id: string;
@@ -353,7 +354,7 @@ function SnapStripStudio() {
   const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
 
   const handleStartSession = (settings: { countdown: number; filter: string }) => {
-    // Separate the template image URL from the rest of the layer data to avoid storage quota issues.
+    // Separate the template image URL from the rest of the layer data.
     const templateLayer = layers.find(l => l.type === 'template');
     const layoutWithoutTemplateUrl = layers.map(l => {
       if (l.type === 'template') {
@@ -363,10 +364,11 @@ function SnapStripStudio() {
       return l;
     });
 
+    // Use the in-memory cache for the large image data
     if (templateLayer && templateLayer.url) {
-      sessionStorage.setItem('snapstrip-template-image', templateLayer.url);
+      setTemplateImage(templateLayer.url);
     } else {
-      sessionStorage.removeItem('snapstrip-template-image');
+      clearTemplateImage();
     }
     sessionStorage.setItem('snapstrip-layout', JSON.stringify(layoutWithoutTemplateUrl));
 
