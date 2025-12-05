@@ -612,10 +612,10 @@ function SnapStripStudio() {
                                     onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
                                     className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
                                     style={{
-                                        top: direction.includes('top') ? '-6px' : 'auto',
-                                        bottom: direction.includes('bottom') ? '-6px' : 'auto',
-                                        left: direction.includes('left') ? '-6px' : 'auto',
-                                        right: direction.includes('right') ? '-6px' : 'auto',
+                                        top: direction.includes('top') ? (direction.includes('left') || direction.includes('right') ? '-6px' : 'calc(50% - 6px)') : 'auto',
+                                        bottom: direction.includes('bottom') ? (direction.includes('left') || direction.includes('right') ? '-6px' : 'calc(50% - 6px)') : 'auto',
+                                        left: direction.includes('left') ? (direction.includes('top') || direction.includes('bottom') ? '-6px' : 'calc(50% - 6px)') : 'auto',
+                                        right: direction.includes('right') ? (direction.includes('top') || direction.includes('bottom') ? '-6px' : 'calc(50% - 6px)') : 'auto',
                                         cursor: getCursorForDirection(direction),
                                         zIndex: layers.length + 2,
                                         pointerEvents: 'auto', // Ensure handles are always clickable
@@ -713,8 +713,3 @@ export default function StudioPage() {
     </Suspense>
   );
 }
-
-    
-
-    
-
