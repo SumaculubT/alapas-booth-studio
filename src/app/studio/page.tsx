@@ -421,7 +421,15 @@ function SnapStripStudio() {
             </div>
           </div>
           
-          <div ref={canvasWrapperRef} className="flex-1 w-full flex items-center justify-center">
+          <div 
+            ref={canvasWrapperRef} 
+            className="flex-1 w-full flex items-center justify-center"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedLayer(null);
+              }
+            }}
+          >
             <div
               ref={canvasRef}
               className="relative bg-card shadow-lg"
@@ -583,5 +591,3 @@ export default function StudioPage() {
     </Suspense>
   );
 }
-
-    
