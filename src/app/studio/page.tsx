@@ -234,20 +234,18 @@ function SnapStripStudio() {
     e.stopPropagation();
     const layer = layers.find(l => l.id === id);
     if (layer) {
-      const newLockState = !layer.isLocked;
-      updateLayer(id, { isLocked: newLockState });
-      if (newLockState && selectedLayer === id) {
-        setSelectedLayer(null);
-      }
+      updateLayer(id, { isLocked: !layer.isLocked });
     }
   };
 
   const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string) => {
     e.stopPropagation();
     const layer = layers.find(l => l.id === layerId);
-    if (!layer || layer.isLocked) return;
+    if (!layer) return;
 
     setSelectedLayer(layerId);
+    if (layer.isLocked) return;
+
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     const initialX = e.clientX - canvasRect.left;
@@ -367,9 +365,8 @@ function SnapStripStudio() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       isActive={layer.id === selectedLayer}
-                      onClick={() => !layer.isLocked && setSelectedLayer(layer.id)}
+                      onClick={() => setSelectedLayer(layer.id)}
                       className={!layer.isVisible ? 'text-muted-foreground' : ''}
-                      disabled={layer.isLocked}
                     >
                       {layer.type === 'camera' ? <Camera size={16} /> : <ImageIcon size={16} />}
                       {layer.name}
@@ -440,7 +437,7 @@ function SnapStripStudio() {
                     <div
                         key={layer.id}
                         onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                        className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }`}
+                        className={`absolute ${ isSelected ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }`}
                         style={commonStyle}
                     >
                         {layer.type === 'template' && layer.url && (
@@ -494,7 +491,7 @@ function SnapStripStudio() {
                          <div
                             key={layer.id}
                             style={commonStyle}
-                            className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "" }`}
+                            className={`absolute ${ isSelected ? "border-2 border-dashed border-primary" : "" }`}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
                                 handleLayerMouseDown(e, layer.id)
@@ -578,11 +575,11 @@ function SnapStripStudio() {
                                   </div>
                               </>
                           )}
+                           <Button variant="destructive" onClick={() => removeLayer(selectedLayerData.id)} className="w-full">
+                              <Trash2 className="mr-2"/>
+                              Delete Layer
+                          </Button>
                         </fieldset>
-                        <Button variant="destructive" onClick={() => removeLayer(selectedLayerData.id)} className="w-full">
-                            <Trash2 className="mr-2"/>
-                            Delete Layer
-                        </Button>
                     </div>
                 )}
             </div>
@@ -607,3 +604,5 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
