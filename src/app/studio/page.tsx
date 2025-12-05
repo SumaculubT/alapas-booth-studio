@@ -1,107 +1,271 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import TemplateUploader from "@/components/app/TemplateUploader";
-import PhotoCapture from "@/components/app/PhotoCapture";
-import PhotoStripPreview from "@/components/app/PhotoStripPreview";
+import Image from "next/image";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarTrigger,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { Suspense } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import {
+  Layers,
+  UploadCloud,
+  Camera,
+  Trash2,
+  ArrowLeft,
+  Settings,
+} from "lucide-react";
 
-type Step = "template" | "capture" | "preview";
+interface Layer {
+  id: string;
+  type: "image" | "camera";
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  url?: string;
+}
 
 function SnapStripStudio() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventSize = searchParams.get("size") || "2x6";
+  const isLandscape = eventSize === "4x6";
+  const aspectRatio = isLandscape ? 1.5 : 2 / 6; // 4x6 -> 6/4 = 1.5, 2x6 -> 6/2 = 3... oh wait, it's w/h so 6/4, 6/2. no, it's 4x6 so 4/6, 2x6. No, it's usually 6x4, 6x2. The image is landscape, so 600/400=1.5. 2x6 is portrait, so 2/6.
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
-  const [step, setStep] = useState<Step>("template");
   const [templateUrl, setTemplateUrl] = useState<string | null>(null);
-  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [layers, setLayers] = useState<Layer[]>([]);
+  const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 500 / (isLandscape ? 6/4 : 2/6) });
 
-  const PHOTO_COUNT = 4;
+  useEffect(() => {
+    const handleResize = () => {
+        if (canvasWrapperRef.current) {
+            const parentWidth = canvasWrapperRef.current.offsetWidth;
+            const newWidth = parentWidth * 0.9;
+            const newHeight = newWidth / (isLandscape ? 6/4 : 2/6);
+            setCanvasSize({ width: newWidth, height: newHeight});
+        }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isLandscape]);
 
-  const handleTemplateSelect = (url: string) => {
-    setTemplateUrl(url);
-    setStep("capture");
-  };
 
-  const handlePhotosCapture = (photos: string[]) => {
-    setCapturedPhotos(photos);
-    setStep("preview");
-  };
-
-  const handleRestart = () => {
-    router.push("/");
-  };
-
-  const handleBack = () => {
-    if (step === "template") {
-      router.push("/");
-    } else if (step === "capture") {
-      setStep("template");
-      setTemplateUrl(null);
-    } else if (step === "preview") {
-      setStep("capture");
-      setCapturedPhotos([]);
+  const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTemplateUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const renderStep = () => {
-    switch (step) {
-      case "template":
-        return <TemplateUploader onTemplateSelect={handleTemplateSelect} eventSize={eventSize} />;
-      case "capture":
-        return (
-          <PhotoCapture
-            onCaptureComplete={handlePhotosCapture}
-            photoCount={PHOTO_COUNT}
-          />
-        );
-      case "preview":
-        if (!templateUrl) return null;
-        return (
-          <PhotoStripPreview
-            templateUrl={templateUrl}
-            photos={capturedPhotos}
-            onRestart={handleRestart}
-            eventSize={eventSize}
-          />
-        );
-      default:
-        return <TemplateUploader onTemplateSelect={handleTemplateSelect} eventSize={eventSize}/>;
-    }
+  const addCameraLayer = () => {
+    const newLayer: Layer = {
+      id: `camera-${Date.now()}`,
+      type: "camera",
+      name: `Photo ${layers.filter((l) => l.type === "camera").length + 1}`,
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 100,
+      rotation: 0,
+    };
+    setLayers([...layers, newLayer]);
+    setSelectedLayer(newLayer.id);
   };
+  
+  const removeLayer = (id: string) => {
+    setLayers(layers.filter(layer => layer.id !== id));
+    if (selectedLayer === id) {
+        setSelectedLayer(null);
+    }
+  }
+
+  const updateLayer = (id: string, newProps: Partial<Layer>) => {
+    setLayers(
+      layers.map((layer) =>
+        layer.id === id ? { ...layer, ...newProps } : layer
+      )
+    );
+  };
+
+  const selectedLayerData = layers.find((l) => l.id === selectedLayer);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
-      <div className="w-full max-w-md mx-auto">
-        <header className="text-center mb-8 relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleBack}
-            className="absolute left-0 top-1/2 -translate-y-1/2"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-6 w-6" />
+    <SidebarProvider>
+      <Sidebar side="right" variant="sidebar" collapsible="icon">
+        <SidebarHeader>
+          <div className="flex items-center gap-2">
+            <Layers className="text-primary" />
+            <h2 className="text-lg font-semibold">Layers</h2>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarMenu>
+              {templateUrl && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={selectedLayer === "template"}
+                    onClick={() => setSelectedLayer("template")}
+                  >
+                    Template Image
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {layers.map((layer) => (
+                <SidebarMenuItem key={layer.id}>
+                  <SidebarMenuButton
+                    isActive={layer.id === selectedLayer}
+                    onClick={() => setSelectedLayer(layer.id)}
+                  >
+                    <Camera size={16} />
+                    {layer.name}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter>
+          <Button onClick={addCameraLayer} className="w-full">
+            <Camera className="mr-2" /> Add Photo Box
           </Button>
-          <h1 className="text-4xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            SnapStrip Studio
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Create your custom {eventSize} photo strip
-          </p>
-        </header>
-        <div className="w-full bg-card p-4 sm:p-6 rounded-lg shadow-lg">
-          {renderStep()}
-        </div>
-        <footer className="text-center mt-8 text-sm text-muted-foreground">
-          <p>Powered by Next.js and Firebase</p>
-        </footer>
-      </div>
-    </main>
+        </SidebarFooter>
+      </Sidebar>
+      
+      <SidebarInset>
+        <main className="flex flex-1 flex-col p-4 md:p-6 bg-muted/40">
+           <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" onClick={() => router.push("/")}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+            </Button>
+            <h1 className="text-2xl font-bold">Studio Editor</h1>
+            <div className="flex items-center gap-2">
+                <Button>
+                    Start Session
+                </Button>
+                <SidebarTrigger />
+            </div>
+          </div>
+          
+          <div ref={canvasWrapperRef} className="flex-1 w-full flex items-center justify-center">
+            <div
+              className="relative bg-card shadow-lg"
+              style={{ width: canvasSize.width, height: canvasSize.height }}
+            >
+              {templateUrl && (
+                <Image
+                  src={templateUrl}
+                  alt="Template"
+                  layout="fill"
+                  objectFit="contain"
+                  className="pointer-events-none"
+                />
+              )}
+              {layers.map((layer) => (
+                <div
+                  key={layer.id}
+                  className={`absolute flex items-center justify-center border-2 border-dashed ${
+                    selectedLayer === layer.id
+                      ? "border-primary"
+                      : "border-muted-foreground"
+                  }`}
+                  style={{
+                    left: `${layer.x}px`,
+                    top: `${layer.y}px`,
+                    width: `${layer.width}px`,
+                    height: `${layer.height}px`,
+                    transform: `rotate(${layer.rotation}deg)`,
+                  }}
+                  onClick={() => setSelectedLayer(layer.id)}
+                >
+                  <Camera className="text-muted-foreground" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+      </SidebarInset>
+
+       <Sidebar side="left" variant="sidebar" collapsible="offcanvas" className="w-80">
+        <SidebarHeader>
+            <div className="flex items-center gap-2">
+                <Settings className="text-primary"/>
+                <h2 className="text-lg font-semibold">Properties</h2>
+            </div>
+        </SidebarHeader>
+        <SidebarContent>
+            <div className="p-4 space-y-6">
+                {!selectedLayerData && !templateUrl && (
+                    <Label
+                        htmlFor="template-upload"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                        <p className="mb-2 text-sm text-muted-foreground">
+                            <span className="font-semibold text-primary">Upload Template</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">PNG recommended</p>
+                        </div>
+                        <Input id="template-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handleTemplateUpload} />
+                    </Label>
+                )}
+
+                {selectedLayerData && (
+                    <div className="space-y-4">
+                        <h3 className="font-medium">{selectedLayerData.name}</h3>
+                        <div className="space-y-2">
+                            <Label>Position (X, Y)</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                            <Input type="number" value={selectedLayerData.x} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
+                            <Input type="number" value={selectedLayerData.y} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Size (W, H)</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                            <Input type="number" value={selectedLayerData.width} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target-value) })} />
+                            <Input type="number" value={selectedLayerData.height} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Rotation</Label>
+                            <Slider value={[selectedLayerData.rotation]} max={360} step={1} onValueChange={([val]) => updateLayer(selectedLayerData.id, { rotation: val })} />
+                        </div>
+                        <Button variant="destructive" onClick={() => removeLayer(selectedLayerData.id)} className="w-full">
+                            <Trash2 className="mr-2"/>
+                            Delete Layer
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </SidebarContent>
+      </Sidebar>
+    </SidebarProvider>
   );
 }
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Camera as CameraIcon, CheckCircle, CircleDot } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface PhotoCaptureProps {
   onCaptureComplete: (photos: string[]) => void;
@@ -15,40 +16,35 @@ interface PhotoCaptureProps {
 export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    let streamInstance: MediaStream | null = null;
-    const enableStream = async () => {
+    const getCameraPermission = async () => {
       try {
-        streamInstance = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 1280, height: 720 },
-        });
-        setStream(streamInstance);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 1280, height: 720 } });
+        setHasCameraPermission(true);
+
         if (videoRef.current) {
-          videoRef.current.srcObject = streamInstance;
+          videoRef.current.srcObject = stream;
         }
-      } catch (err) {
-        console.error("Error accessing camera: ", err);
-        toast({
-            variant: "destructive",
-            title: "Camera Error",
-            description: "Could not access camera. Please check permissions and try again.",
-        });
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
       }
     };
 
-    enableStream();
-
+    getCameraPermission();
+    
     return () => {
-      if (streamInstance) {
-        streamInstance.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [toast]);
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach((track) => track.stop());
+        }
+    }
+  }, []);
 
   const takePicture = () => {
     if (videoRef.current && canvasRef.current) {
@@ -100,13 +96,23 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
 
       <div className="relative w-full aspect-[4/3] bg-muted rounded-lg overflow-hidden flex items-center justify-center">
         <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
-        {!stream && <p>Starting camera...</p>}
+        
         {countdown !== null && countdown > 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <span className="text-9xl font-bold text-white drop-shadow-lg animate-ping-once">{countdown}</span>
           </div>
         )}
       </div>
+
+       {!hasCameraPermission && (
+          <Alert variant="destructive">
+              <AlertTitle>Camera Access Required</AlertTitle>
+              <AlertDescription>
+                Please allow camera access to use this feature. Refresh the page after enabling permissions.
+              </AlertDescription>
+          </Alert>
+       )}
+
 
       <div className="space-y-2">
         <Progress value={progress} />
@@ -124,7 +130,7 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
       </div>
 
       {photos.length < photoCount ? (
-        <Button onClick={startCaptureSequence} size="lg" className="w-full" disabled={countdown !== null}>
+        <Button onClick={startCaptureSequence} size="lg" className="w-full" disabled={countdown !== null || !hasCameraPermission}>
           <CameraIcon className="mr-2 h-5 w-5" />
           Take Photo {photos.length + 1}
         </Button>
