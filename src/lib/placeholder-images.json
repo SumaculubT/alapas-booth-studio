@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "template1",
+      "description": "Classic 4-photo vertical strip template.",
+      "imageUrl": "https://images.unsplash.com/photo-1759070725320-2bdd608c8eab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwaG90b2Jvb3RoJTIwdGVtcGxhdGV8ZW58MHx8fHwxNzY0OTM5NzA5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photobooth template"
+    },
+    {
+      "id": "template2",
+      "description": "Polaroid style 4-photo template.",
+      "imageUrl": "https://images.unsplash.com/photo-1516962126636-27ad087061cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwaG90b2Jvb3RoJTIwdGVtcGxhdGUlMjBwb2xhcm9pZHxlbnwwfHx8fDE3NjQ5Mzk3MDl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photobooth template polaroid"
+    },
+    {
+      "id": "template3",
+      "description": "Film strip style template.",
+      "imageUrl": "https://images.unsplash.com/photo-1601891023793-0211514059ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwaG90b2Jvb3RoJTIwdGVtcGxhdGUlMjBmaWxtc3RyaXB8ZW58MHx8fHwxNzY0OTM5NzA5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photobooth template filmstrip"
+    }
+  ]
 }
