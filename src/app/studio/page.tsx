@@ -98,7 +98,7 @@ function SnapStripStudio() {
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [zoom, setZoom] = useState(0.5);
+  const [zoom, setZoom] = useState(1);
 
   const setDefaultTemplate = (templateUrl: string, width: number, height: number) => {
     const newLayer: Layer = {
@@ -532,7 +532,7 @@ function SnapStripStudio() {
             </Button>
             <div className="flex items-center gap-1 bg-background p-1 rounded-md border">
               <Button variant="ghost" size="icon" onClick={() => setZoom(z => z + 0.1)}><ZoomIn/></Button>
-              <Button variant="ghost" size="icon" onClick={() => setZoom(0.5)}><Maximize/></Button>
+              <Button variant="ghost" size="icon" onClick={() => setZoom(1)}><Maximize/></Button>
               <Button variant="ghost" size="icon" onClick={() => setZoom(z => z - 0.1)}><ZoomOut/></Button>
             </div>
             <div className="flex items-center gap-2">
