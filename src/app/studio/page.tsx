@@ -190,9 +190,9 @@ function SnapStripStudio() {
     const handleWheel = (e: WheelEvent) => {
       if (e.altKey) {
         e.preventDefault();
-        const zoomSpeed = 0.005;
+        const zoomIncrement = 0.1;
         setZoom(prevZoom => {
-          const newZoom = prevZoom - e.deltaY * zoomSpeed;
+          const newZoom = prevZoom - Math.sign(e.deltaY) * zoomIncrement;
           return Math.max(0.1, Math.min(newZoom, 2)); // Clamp zoom between 0.1 and 2
         });
       }
