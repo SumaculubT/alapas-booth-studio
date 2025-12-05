@@ -211,7 +211,7 @@ function SnapStripStudio() {
         }
 
         if (newWidth > 10 && newHeight > 10) {
-            updateLayer(resizingState.layerId, { x: newX, y: newY, width: newWidth, height: newWidth });
+            updateLayer(resizingState.layerId, { x: newX, y: newY, width: newWidth, height: newHeight });
             setResizingState(prev => prev ? { ...prev, initialX: mouseX, initialY: mouseY } : null);
         }
     }
@@ -402,7 +402,7 @@ function SnapStripStudio() {
 
 
   const selectedLayerData = layers.find((l) => l.id === selectedLayer);
-  const resizeHandlePositions: ResizeDirection[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+  const resizeHandlePositions: ResizeDirection[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top', 'left', 'right', 'bottom'];
 
   const handleLayerDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
     const layer = layers.find(l => l.id === id);
@@ -713,5 +713,7 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
 
     
