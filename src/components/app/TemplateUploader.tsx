@@ -12,11 +12,14 @@ import { useToast } from "@/hooks/use-toast";
 
 interface TemplateUploaderProps {
   onTemplateSelect: (url: string) => void;
+  eventSize: "2x6" | "4x6" | string;
 }
 
-const defaultTemplates = PlaceHolderImages.filter(img => img.imageHint.includes("template"));
+const defaultTemplates2x6 = PlaceHolderImages.filter(img => img.imageHint.includes("template") && !img.imageHint.includes("landscape"));
+const defaultTemplates4x6 = PlaceHolderImages.filter(img => img.imageHint.includes("template") && img.imageHint.includes("landscape"));
 
-export default function TemplateUploader({ onTemplateSelect }: TemplateUploaderProps) {
+
+export default function TemplateUploader({ onTemplateSelect, eventSize }: TemplateUploaderProps) {
   const { toast } = useToast();
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -37,11 +40,15 @@ export default function TemplateUploader({ onTemplateSelect }: TemplateUploaderP
     }
   };
 
+  const defaultTemplates = eventSize === "4x6" ? defaultTemplates4x6 : defaultTemplates2x6;
+  const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/3]";
+  const uploadHint = eventSize === "4x6" ? "PNG file (e.g. 1200x800px)" : "PNG file (e.g. 800x1200px)";
+
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
         <h2 className="text-2xl font-semibold">1. Choose Your Template</h2>
-        <p className="text-muted-foreground">Upload your own or select one of ours.</p>
+        <p className="text-muted-foreground">Upload your own or select one of ours for your {eventSize} strip.</p>
       </div>
 
       <Card>
@@ -59,7 +66,7 @@ export default function TemplateUploader({ onTemplateSelect }: TemplateUploaderP
               <p className="mb-2 text-sm text-muted-foreground">
                 <span className="font-semibold text-primary">Click to upload</span> or drag and drop
               </p>
-              <p className="text-xs text-muted-foreground">PNG file (e.g. 800x1200px)</p>
+              <p className="text-xs text-muted-foreground">{uploadHint}</p>
             </div>
             <Input id="template-upload" type="file" className="hidden" accept="image/png" onChange={handleFileChange} />
           </Label>
@@ -87,9 +94,9 @@ export default function TemplateUploader({ onTemplateSelect }: TemplateUploaderP
                 <Image
                   src={template.imageUrl}
                   alt={template.description}
-                  width={400}
-                  height={600}
-                  className="object-cover w-full h-auto aspect-[2/3]"
+                  width={eventSize === "4x6" ? 600 : 400}
+                  height={eventSize === "4x6" ? 400 : 600}
+                  className={`object-cover w-full h-auto ${aspectRatio}`}
                   data-ai-hint={template.imageHint}
                 />
               </CardContent>

@@ -10,12 +10,14 @@ interface PhotoStripPreviewProps {
   templateUrl: string;
   photos: string[];
   onRestart: () => void;
+  eventSize: "2x6" | "4x6" | string;
 }
 
 export default function PhotoStripPreview({
   templateUrl,
   photos,
   onRestart,
+  eventSize,
 }: PhotoStripPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isGenerating, setIsGenerating] = useState(true);
@@ -40,8 +42,15 @@ export default function PhotoStripPreview({
       });
       
       const templateAspectRatio = templateImg.naturalWidth / templateImg.naturalHeight;
-      canvas.width = 800;
-      canvas.height = canvas.width / templateAspectRatio;
+      const isLandscape = eventSize === '4x6';
+
+      if (isLandscape) {
+        canvas.width = 1200;
+        canvas.height = canvas.width / templateAspectRatio;
+      } else {
+        canvas.width = 800;
+        canvas.height = canvas.width / templateAspectRatio;
+      }
       
       const photoImages = await Promise.all(
           photos.map(p => {
@@ -55,30 +64,59 @@ export default function PhotoStripPreview({
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const photoHeight = (canvas.height * 0.9) / 4;
-      const photoWidth = canvas.width * 0.9;
-      const x_offset = canvas.width * 0.05;
-      const y_offset_start = canvas.height * 0.05;
+      if (isLandscape) {
+        const photoWidth = (canvas.width * 0.9) / 4;
+        const photoHeight = canvas.height * 0.9;
+        const x_offset_start = canvas.width * 0.05;
+        const y_offset = canvas.height * 0.05;
 
-      photoImages.forEach((photo, index) => {
-          const y_offset = y_offset_start + index * photoHeight;
-          const photoAspectRatio = photo.naturalWidth / photo.naturalHeight;
-          let sx, sy, sWidth, sHeight;
+        photoImages.forEach((photo, index) => {
+            const x_offset = x_offset_start + index * photoWidth;
+            // Crop the photo to fit the placeholder
+            const photoAspectRatio = photo.naturalWidth / photo.naturalHeight;
+            let sx, sy, sWidth, sHeight;
+            
+            if (photoAspectRatio > photoWidth / photoHeight) { // photo is wider than placeholder
+                sHeight = photo.naturalHeight;
+                sWidth = sHeight * (photoWidth / photoHeight);
+                sx = (photo.naturalWidth - sWidth) / 2;
+                sy = 0;
+            } else { // photo is taller than placeholder
+                sWidth = photo.naturalWidth;
+                sHeight = sWidth / (photoWidth / photoHeight);
+                sx = 0;
+                sy = (photo.naturalHeight - sHeight) / 2;
+            }
+            
+            ctx.drawImage(photo, sx, sy, sWidth, sHeight, x_offset, y_offset, photoWidth, photoHeight);
+        });
+      } else {
+        const photoHeight = (canvas.height * 0.9) / 4;
+        const photoWidth = canvas.width * 0.9;
+        const x_offset = canvas.width * 0.05;
+        const y_offset_start = canvas.height * 0.05;
 
-          if (photoAspectRatio > photoWidth / photoHeight) {
-              sHeight = photo.naturalHeight;
-              sWidth = sHeight * (photoWidth / photoHeight);
-              sx = (photo.naturalWidth - sWidth) / 2;
-              sy = 0;
-          } else {
-              sWidth = photo.naturalWidth;
-              sHeight = sWidth / (photoWidth / photoHeight);
-              sx = 0;
-              sy = (photo.naturalHeight - sHeight) / 2;
-          }
-          
-          ctx.drawImage(photo, sx, sy, sWidth, sHeight, x_offset, y_offset, photoWidth, photoHeight);
-      });
+        photoImages.forEach((photo, index) => {
+            const y_offset = y_offset_start + index * photoHeight;
+            const photoAspectRatio = photo.naturalWidth / photo.naturalHeight;
+            let sx, sy, sWidth, sHeight;
+
+            if (photoAspectRatio > photoWidth / photoHeight) {
+                sHeight = photo.naturalHeight;
+                sWidth = sHeight * (photoWidth / photoHeight);
+                sx = (photo.naturalWidth - sWidth) / 2;
+                sy = 0;
+            } else {
+                sWidth = photo.naturalWidth;
+                sHeight = sWidth / (photoWidth / photoHeight);
+                sx = 0;
+                sy = (photo.naturalHeight - sHeight) / 2;
+            }
+            
+            ctx.drawImage(photo, sx, sy, sWidth, sHeight, x_offset, y_offset, photoWidth, photoHeight);
+        });
+      }
+
 
       ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
 
@@ -87,7 +125,7 @@ export default function PhotoStripPreview({
     };
 
     generateStrip();
-  }, [templateUrl, photos]);
+  }, [templateUrl, photos, eventSize]);
 
   const handleDownload = () => {
     if (!finalImage) return;
@@ -122,19 +160,21 @@ export default function PhotoStripPreview({
     }
   };
 
+  const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/3]";
+
   return (
     <div className="space-y-4 text-center">
       <h2 className="text-2xl font-semibold">3. Your Photo Strip!</h2>
       <p className="text-muted-foreground">Save it, share it, or start over.</p>
 
-      <div className="relative w-full aspect-[2/3] bg-muted rounded-lg overflow-hidden">
+      <div className={`relative w-full ${aspectRatio} bg-muted rounded-lg overflow-hidden`}>
         {isGenerating && <Skeleton className="w-full h-full" />}
         {finalImage && (
           <Image
             src={finalImage}
             alt="Final photo strip"
-            width={800}
-            height={1200}
+            width={eventSize === "4x6" ? 1200 : 800}
+            height={eventSize === "4x6" ? 800 : 1200}
             className="w-full h-full object-contain"
           />
         )}

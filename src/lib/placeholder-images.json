@@ -4,7 +4,7 @@
       "id": "template1",
       "description": "Classic 4-photo vertical strip template.",
       "imageUrl": "https://images.unsplash.com/photo-1759070725320-2bdd608c8eab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwaG90b2Jvb3RoJTIwdGVtcGxhdGV8ZW58MHx8fHwxNzY0OTM5NzA5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "photobooth template"
+      "imageHint": "photobooth template classic"
     },
     {
       "id": "template2",
@@ -17,6 +17,24 @@
       "description": "Film strip style template.",
       "imageUrl": "https://images.unsplash.com/photo-1601891023793-0211514059ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwaG90b2Jvb3RoJTIwdGVtcGxhdGUlMjBmaWxtc3RyaXB8ZW58MHx8fHwxNzY0OTM5NzA5fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "photobooth template filmstrip"
+    },
+    {
+      "id": "template4",
+      "description": "Modern landscape template.",
+      "imageUrl": "https://images.unsplash.com/photo-1505373339329-0205b6a71f0d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwaG90b2Jvb3RoJTIwdGVtcGxhdGUlMjBsYW5kc2NhcGV8ZW58MHx8fHwxNzY1OTI4MjYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photobooth template landscape modern"
+    },
+    {
+      "id": "template5",
+      "description": "Minimalist landscape template.",
+      "imageUrl": "https://images.unsplash.com/photo-1533090488915-c2b080534de4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwaG90b2Jvb3RoJTIwdGVtcGxhdGUlMjBsYW5kc2NhcGV8ZW58MHx8fHwxNzY1OTI4MjYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photobooth template landscape minimalist"
+    },
+    {
+      "id": "template6",
+      "description": "Fun landscape party template.",
+      "imageUrl": "https://images.unsplash.com/photo-1513151233558-d860c5398176?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwaG90b2Jvb3RoJTIwdGVtcGxhdGUlMjBsYW5kc2NhcGUlMjBwYXJ0eXxlbnwwfHx8fDE3NjU5MjgzNTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photobooth template landscape party"
     }
   ]
 }

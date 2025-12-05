@@ -1,95 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import TemplateUploader from "@/components/app/TemplateUploader";
-import PhotoCapture from "@/components/app/PhotoCapture";
-import PhotoStripPreview from "@/components/app/PhotoStripPreview";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 
-type Step = "template" | "capture" | "preview";
-
-export default function SnapStripStudio() {
-  const [step, setStep] = useState<Step>("template");
-  const [templateUrl, setTemplateUrl] = useState<string | null>(null);
-  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
-
-  const PHOTO_COUNT = 4;
-
-  const handleTemplateSelect = (url: string) => {
-    setTemplateUrl(url);
-    setStep("capture");
-  };
-
-  const handlePhotosCapture = (photos: string[]) => {
-    setCapturedPhotos(photos);
-    setStep("preview");
-  };
-
-  const handleRestart = () => {
-    setStep("template");
-    setTemplateUrl(null);
-    setCapturedPhotos([]);
-  };
-
-  const handleBack = () => {
-    if (step === "capture") {
-      setStep("template");
-      setTemplateUrl(null);
-    } else if (step === "preview") {
-      setStep("capture");
-      setCapturedPhotos([]);
-    }
-  };
-
-  const renderStep = () => {
-    switch (step) {
-      case "template":
-        return <TemplateUploader onTemplateSelect={handleTemplateSelect} />;
-      case "capture":
-        return (
-          <PhotoCapture
-            onCaptureComplete={handlePhotosCapture}
-            photoCount={PHOTO_COUNT}
-          />
-        );
-      case "preview":
-        if (!templateUrl) return null;
-        return (
-          <PhotoStripPreview
-            templateUrl={templateUrl}
-            photos={capturedPhotos}
-            onRestart={handleRestart}
-          />
-        );
-      default:
-        return <TemplateUploader onTemplateSelect={handleTemplateSelect} />;
-    }
-  };
-
+export default function SetupPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
-      <div className="w-full max-w-md mx-auto">
-        <header className="text-center mb-8 relative">
-          {step !== "template" && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleBack}
-              className="absolute left-0 top-1/2 -translate-y-1/2"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-          )}
+      <div className="w-full max-w-4xl mx-auto">
+        <header className="text-center mb-8">
           <h1 className="text-4xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            SnapStrip Studio
+            Welcome to SnapStrip Studio
           </h1>
-          <p className="text-muted-foreground mt-2">Create your custom photo strip</p>
+          <p className="text-muted-foreground mt-2">
+            Choose your event setup to get started
+          </p>
         </header>
-        <div className="w-full bg-card p-4 sm:p-6 rounded-lg shadow-lg">
-          {renderStep()}
+
+        <div className="grid md:grid-cols-2 gap-8">
+          <Link href="/studio?size=2x6">
+            <Card className="h-full flex flex-col group hover:ring-2 hover:ring-primary transition-all">
+              <CardHeader>
+                <CardTitle>Classic Booth</CardTitle>
+                <CardDescription>
+                  The timeless 2x6 photo strip. Perfect for any occasion.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow flex flex-col justify-between">
+                <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-muted mb-4">
+                  <Image
+                    src="https://picsum.photos/seed/photobooth2x6/400/600"
+                    alt="2x6 photo strip preview"
+                    fill
+                    className="object-cover"
+                    data-ai-hint="photobooth classic"
+                  />
+                </div>
+                <Button className="w-full mt-auto">
+                  Select 2x6 Strips
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/studio?size=4x6">
+            <Card className="h-full flex flex-col group hover:ring-2 hover:ring-primary transition-all">
+              <CardHeader>
+                <CardTitle>Landscape Postcard</CardTitle>
+                <CardDescription>
+                  A modern 4x6 layout. More space for creativity.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow flex flex-col justify-between">
+                <div className="relative w-full aspect-video rounded-md overflow-hidden bg-muted mb-4">
+                  <Image
+                    src="https://picsum.photos/seed/photobooth4x6/600/400"
+                    alt="4x6 photo strip preview"
+                    fill
+                    className="object-cover"
+                    data-ai-hint="photobooth landscape"
+                  />
+                </div>
+                <Button className="w-full mt-auto">
+                  Select 4x6 Postcard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
+
         <footer className="text-center mt-8 text-sm text-muted-foreground">
           <p>Powered by Next.js and Firebase</p>
         </footer>
