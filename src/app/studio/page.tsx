@@ -70,7 +70,7 @@ function SnapStripStudio() {
   const [canvasSize, setCanvasSize] = useState({ width: 500, height: 750 });
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
   const [resizingState, setResizingState] = useState<{ layerId: string, direction: ResizeDirection, initialX: number, initialY: number } | null>(null);
-
+  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -248,6 +248,35 @@ function SnapStripStudio() {
   const selectedLayerData = layers.find((l) => l.id === selectedLayer);
   const resizeHandlePositions: ResizeDirection[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 
+  const handleLayerDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    setDraggedLayerId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleLayerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleLayerDrop = (e: React.DragEvent<HTMLDivElement>, targetId: string) => {
+    e.preventDefault();
+    if (!draggedLayerId) return;
+
+    const draggedIndex = layers.findIndex(l => l.id === draggedLayerId);
+    const targetIndex = layers.findIndex(l => l.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return;
+
+    const newLayers = [...layers];
+    const [draggedLayer] = newLayers.splice(draggedIndex, 1);
+    newLayers.splice(targetIndex, 0, draggedLayer);
+    
+    setLayers(newLayers);
+  };
+
+  const handleLayerDragEnd = () => {
+    setDraggedLayerId(null);
+  };
 
   return (
     <SidebarProvider>
@@ -272,15 +301,25 @@ function SnapStripStudio() {
                 </SidebarMenuItem>
               )}
               {layers.map((layer) => (
-                <SidebarMenuItem key={layer.id}>
-                  <SidebarMenuButton
-                    isActive={layer.id === selectedLayer}
-                    onClick={() => setSelectedLayer(layer.id)}
-                  >
-                    <Camera size={16} />
-                    {layer.name}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <div
+                  key={layer.id}
+                  draggable
+                  onDragStart={(e) => handleLayerDragStart(e, layer.id)}
+                  onDragOver={handleLayerDragOver}
+                  onDrop={(e) => handleLayerDrop(e, layer.id)}
+                  onDragEnd={handleLayerDragEnd}
+                  className={`cursor-grab ${draggedLayerId === layer.id ? 'opacity-50' : ''}`}
+                >
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={layer.id === selectedLayer}
+                      onClick={() => setSelectedLayer(layer.id)}
+                    >
+                      <Camera size={16} />
+                      {layer.name}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </div>
               ))}
             </SidebarMenu>
           </SidebarGroup>
@@ -323,7 +362,7 @@ function SnapStripStudio() {
                   src={templateUrl}
                   alt="Template"
                   fill
-                  style={{objectFit: "contain"}}
+                  style={{objectFit: "contain", zIndex: layers.length + 1}}
                   className="pointer-events-none"
                 />
               )}
@@ -339,6 +378,7 @@ function SnapStripStudio() {
                     width: `${layer.width}px`,
                     height: `${layer.height}px`,
                     transform: `rotate(${layer.rotation}deg)`,
+                    zIndex: index + 1
                   }}
                   onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
                 >
