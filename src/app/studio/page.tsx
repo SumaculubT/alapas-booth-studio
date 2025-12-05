@@ -34,6 +34,7 @@ import {
   Image as ImageIcon,
   Lock,
   Unlock,
+  Move,
 } from "lucide-react";
 import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
 
@@ -90,6 +91,7 @@ function SnapStripStudio() {
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isResizingCanvas, setIsResizingCanvas] = useState(false);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -104,6 +106,15 @@ function SnapStripStudio() {
     const canvasRect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - canvasRect.left;
     const mouseY = e.clientY - canvasRect.top;
+
+    // Handle Canvas Resizing
+    if (isResizingCanvas) {
+      setCanvasSize(prevSize => ({
+        width: prevSize.width + e.movementX,
+        height: prevSize.height + e.movementY,
+      }));
+      return; // Prioritize canvas resizing
+    }
 
     // Handle Dragging
     if (draggingLayer) {
@@ -164,11 +175,12 @@ function SnapStripStudio() {
             setResizingState(prev => prev ? { ...prev, initialX: mouseX, initialY: mouseY } : null);
         }
     }
-  }, [draggingLayer, resizingState, layers, updateLayer, canvasSize]);
+  }, [draggingLayer, resizingState, layers, updateLayer, canvasSize, isResizingCanvas]);
   
   const handleMouseUp = useCallback(() => {
     setDraggingLayer(null);
     setResizingState(null);
+    setIsResizingCanvas(false);
   }, []);
 
   useEffect(() => {
@@ -354,6 +366,11 @@ function SnapStripStudio() {
     setIsSettingsOpen(false);
   };
 
+  const handleCanvasResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setIsResizingCanvas(true);
+  };
+
   return (
     <SidebarProvider>
       <Sidebar side="right" variant="sidebar" collapsible="icon">
@@ -423,88 +440,94 @@ function SnapStripStudio() {
           
           <div 
             ref={canvasWrapperRef} 
-            className="flex-1 w-full flex items-center justify-center"
+            className="flex-1 w-full flex items-center justify-center overflow-auto"
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) {
                 setSelectedLayer(null);
               }
             }}
           >
-            <div
-              ref={canvasRef}
-              className="relative bg-card shadow-lg"
-              style={{ width: canvasSize.width, height: canvasSize.height }}
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) {
-                    setSelectedLayer(null)
-                }
-              }}
-            >
-              {layers.map((layer, index) => {
-                if (!layer.isVisible) return null;
+            <div className="relative">
+              <div
+                ref={canvasRef}
+                className="relative bg-card shadow-lg"
+                style={{ width: canvasSize.width, height: canvasSize.height }}
+                onMouseDown={(e) => {
+                  if (e.target === e.currentTarget) {
+                      setSelectedLayer(null)
+                  }
+                }}
+              >
+                {layers.map((layer, index) => {
+                  if (!layer.isVisible) return null;
 
-                const isSelected = selectedLayer === layer.id;
+                  const isSelected = selectedLayer === layer.id;
 
-                const layerStyle: React.CSSProperties = {
-                    left: `${layer.x}px`,
-                    top: `${layer.y}px`,
-                    width: `${layer.width}px`,
-                    height: `${layer.height}px`,
-                    transform: `rotate(${layer.rotation}deg)`,
-                    zIndex: isSelected ? layers.length + 1 : index,
-                    cursor: !layer.isLocked ? 'move' : 'default',
-                    pointerEvents: layer.isLocked ? 'none' : 'auto',
-                };
-                
-                return (
-                    <div
-                        key={layer.id}
-                        onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                        className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "" }`}
-                        style={layerStyle}
-                    >
-                        {layer.type === 'template' && layer.url && (
-                             <Image
-                                src={layer.url}
-                                alt={layer.name}
-                                fill
-                                style={{objectFit: "contain"}}
-                                className="pointer-events-none"
-                            />
-                        )}
+                  const layerStyle: React.CSSProperties = {
+                      left: `${layer.x}px`,
+                      top: `${layer.y}px`,
+                      width: `${layer.width}px`,
+                      height: `${layer.height}px`,
+                      transform: `rotate(${layer.rotation}deg)`,
+                      zIndex: isSelected ? layers.length + 1 : index,
+                      cursor: !layer.isLocked ? 'move' : 'default',
+                      pointerEvents: layer.isLocked ? 'none' : 'auto',
+                  };
+                  
+                  return (
+                      <div
+                          key={layer.id}
+                          onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
+                          className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "" }`}
+                          style={layerStyle}
+                      >
+                          {layer.type === 'template' && layer.url && (
+                              <Image
+                                  src={layer.url}
+                                  alt={layer.name}
+                                  fill
+                                  style={{objectFit: "contain"}}
+                                  className="pointer-events-none"
+                              />
+                          )}
 
-                        {layer.type === 'camera' && (
-                            <div className={`w-full h-full ${layer.bgColor || 'bg-muted/30'} flex items-center justify-center`}>
-                                <div className="text-center text-muted-foreground">
-                                    <Camera className="mx-auto" />
-                                    <span className="text-sm font-semibold">{layer.name}</span>
-                                </div>
-                            </div>
-                        )}
+                          {layer.type === 'camera' && (
+                              <div className={`w-full h-full ${layer.bgColor || 'bg-muted/30'} flex items-center justify-center`}>
+                                  <div className="text-center text-muted-foreground">
+                                      <Camera className="mx-auto" />
+                                      <span className="text-sm font-semibold">{layer.name}</span>
+                                  </div>
+                              </div>
+                          )}
 
-                        {isSelected && !layer.isLocked && (
-                        <>
-                            {resizeHandlePositions.map(direction => (
-                                <div
-                                    key={direction}
-                                    onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
-                                    className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
-                                    style={{
-                                        top: direction.includes('top') ? '-6px' : 'auto',
-                                        bottom: direction.includes('bottom') ? '-6px' : 'auto',
-                                        left: direction.includes('left') ? '-6px' : 'auto',
-                                        right: direction.includes('right') ? '-6px' : 'auto',
-                                        cursor: getCursorForDirection(direction),
-                                        zIndex: layers.length + 2,
-                                        pointerEvents: 'auto', // Ensure handles are always clickable
-                                    }}
-                                />
-                            ))}
-                        </>
-                        )}
-                    </div>
-                );
-              })}
+                          {isSelected && !layer.isLocked && (
+                          <>
+                              {resizeHandlePositions.map(direction => (
+                                  <div
+                                      key={direction}
+                                      onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
+                                      className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
+                                      style={{
+                                          top: direction.includes('top') ? '-6px' : 'auto',
+                                          bottom: direction.includes('bottom') ? '-6px' : 'auto',
+                                          left: direction.includes('left') ? '-6px' : 'auto',
+                                          right: direction.includes('right') ? '-6px' : 'auto',
+                                          cursor: getCursorForDirection(direction),
+                                          zIndex: layers.length + 2,
+                                          pointerEvents: 'auto', // Ensure handles are always clickable
+                                      }}
+                                  />
+                              ))}
+                          </>
+                          )}
+                      </div>
+                  );
+                })}
+              </div>
+               <div
+                  onMouseDown={handleCanvasResizeMouseDown}
+                  className="absolute -right-1 -bottom-1 w-4 h-4 cursor-se-resize bg-primary rounded-full border-2 border-background"
+                />
             </div>
           </div>
         </main>
@@ -591,3 +614,5 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
