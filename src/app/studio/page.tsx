@@ -198,6 +198,7 @@ function SnapStripStudio() {
 
   const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string) => {
     setSelectedLayer(layerId);
+    e.stopPropagation();
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     const initialX = e.clientX - canvasRect.left;
@@ -209,7 +210,6 @@ function SnapStripStudio() {
       const offsetY = initialY - layer.y;
       setDraggingLayer({ id: layerId, initialX: offsetX, initialY: offsetY });
     }
-    e.stopPropagation();
   };
 
   const handleResizeHandleMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string, direction: ResizeDirection) => {
