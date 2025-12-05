@@ -1,3 +1,4 @@
+
 "use client";
 
 import { ChangeEvent } from "react";
@@ -41,8 +42,8 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
   };
 
   const defaultTemplates = eventSize === "4x6" ? defaultTemplates4x6 : defaultTemplates2x6;
-  const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/3]";
-  const uploadHint = eventSize === "4x6" ? "PNG file (e.g. 1200x800px)" : "PNG file (e.g. 800x1200px)";
+  const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/6]";
+  const uploadHint = eventSize === "4x6" ? "PNG file (e.g. 1800x1200px)" : "PNG file (e.g. 600x1800px)";
 
   return (
     <div className="space-y-6">
@@ -54,7 +55,7 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
       <Card>
         <CardHeader>
           <CardTitle>Upload Custom Template</CardTitle>
-          <CardDescription>Upload a PNG file as an overlay.</CardDescription>
+          <CardDescription>Upload a PNG file to be used as an overlay. Ensure it has transparent areas for the photos.</CardDescription>
         </CardHeader>
         <CardContent>
           <Label
@@ -78,11 +79,11 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
             <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Or select a default</span>
+            <span className="bg-background px-2 text-muted-foreground">Or select a default</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {defaultTemplates.map((template) => (
           <div
             key={template.id}
@@ -91,14 +92,15 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
           >
             <Card className="overflow-hidden transition-all group-hover:ring-2 group-hover:ring-primary">
               <CardContent className="p-0">
+                <div className={`relative w-full ${aspectRatio} bg-muted`}>
                 <Image
                   src={template.imageUrl}
                   alt={template.description}
-                  width={eventSize === "4x6" ? 600 : 400}
-                  height={eventSize === "4x6" ? 400 : 600}
-                  className={`object-cover w-full h-auto ${aspectRatio}`}
+                  fill
+                  className={`object-cover`}
                   data-ai-hint={template.imageHint}
                 />
+                </div>
               </CardContent>
             </Card>
           </div>

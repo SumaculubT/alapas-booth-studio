@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -35,13 +36,12 @@ export default function SetupPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow flex flex-col justify-between">
-                <div className="relative w-full h-64 rounded-md overflow-hidden bg-muted mb-4">
+                <div className="relative w-48 h-96 mx-auto rounded-md overflow-hidden bg-muted mb-4">
                   <Image
-                    src="https://picsum.photos/seed/photobooth2x6/400/600"
+                    src="https://picsum.photos/seed/photobooth2x6/400/800"
                     alt="2x6 photo strip preview"
-                    width="200"
-                    height="300"
-                    className="object-cover mx-auto"
+                    fill
+                    className="object-cover"
                     data-ai-hint="photobooth classic"
                   />
                 </div>

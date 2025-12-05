@@ -94,7 +94,7 @@ function SnapStripStudio() {
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.5);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -353,10 +353,14 @@ function SnapStripStudio() {
   const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
 
   const handleStartSession = (settings: { countdown: number; filter: string }) => {
-    console.log("Starting session with settings:", settings);
-    // Here you would navigate to the actual photo capture page
-    // For now, we just close the dialog
-    setIsSettingsOpen(false);
+    const queryParams = new URLSearchParams({
+        size: eventSize,
+        photoCount: String(cameraLayersCount),
+        countdown: String(settings.countdown),
+        filter: settings.filter
+    });
+    
+    router.push(`/session?${queryParams.toString()}`);
   };
 
 
@@ -420,7 +424,7 @@ function SnapStripStudio() {
             </Button>
             <div className="flex items-center gap-1 bg-background p-1 rounded-md border">
               <Button variant="ghost" size="icon" onClick={() => setZoom(z => z + 0.1)}><ZoomIn/></Button>
-              <Button variant="ghost" size="icon" onClick={() => setZoom(1)}><Maximize/></Button>
+              <Button variant="ghost" size="icon" onClick={() => setZoom(0.5)}><Maximize/></Button>
               <Button variant="ghost" size="icon" onClick={() => setZoom(z => z - 0.1)}><ZoomOut/></Button>
             </div>
             <div className="flex items-center gap-2">
@@ -435,23 +439,18 @@ function SnapStripStudio() {
             ref={canvasWrapperRef} 
             className="flex-1 w-full flex items-center justify-center overflow-auto"
             onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
+              if (e.target === e.currentTarget || e.target === canvasRef.current) {
                 setSelectedLayer(null);
               }
             }}
           >
             <div
               ref={canvasRef}
-              className="relative bg-card shadow-lg"
+              className="relative bg-card shadow-lg origin-top-left"
               style={{ 
                 width: canvasSize.width, 
                 height: canvasSize.height,
-                transform: `scale(${zoom})`
-              }}
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) {
-                    setSelectedLayer(null)
-                }
+                transform: `scale(${zoom})`,
               }}
             >
               {layers.map((layer, index) => {
@@ -466,7 +465,6 @@ function SnapStripStudio() {
                     height: `${layer.height}px`,
                     transform: `rotate(${layer.rotation}deg)`,
                     zIndex: isSelected ? layers.length + 1 : index,
-                    cursor: !layer.isLocked ? 'move' : 'default',
                     pointerEvents: layer.isLocked ? 'none' : 'auto',
                 };
                 
@@ -605,7 +603,3 @@ export default function StudioPage() {
     </Suspense>
   );
 }
-
-    
-
-    
