@@ -1,6 +1,7 @@
+
 "use client";
 
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -72,6 +73,14 @@ function SnapStripStudio() {
     return () => window.removeEventListener("resize", handleResize);
   }, [isLandscape]);
 
+  const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
+    setLayers((prevLayers) =>
+      prevLayers.map((layer) =>
+        layer.id === id ? { ...layer, ...newProps } : layer
+      )
+    );
+  }, []);
+
   const handleMouseMove = (e: MouseEvent) => {
     if (!draggingLayer || !canvasRef.current) return;
     
@@ -101,13 +110,14 @@ function SnapStripStudio() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draggingLayer, updateLayer]);
 
 
   const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
+      const reader = a new FileReader();
       reader.onloadend = () => {
         setTemplateUrl(reader.result as string);
       };
@@ -136,14 +146,6 @@ function SnapStripStudio() {
         setSelectedLayer(null);
     }
   }
-
-  const updateLayer = (id: string, newProps: Partial<Layer>) => {
-    setLayers(
-      layers.map((layer) =>
-        layer.id === id ? { ...layer, ...newProps } : layer
-      )
-    );
-  };
 
   const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layer: Layer) => {
     setSelectedLayer(layer.id);
@@ -224,8 +226,8 @@ function SnapStripStudio() {
                 <Image
                   src={templateUrl}
                   alt="Template"
-                  layout="fill"
-                  objectFit="contain"
+                  fill
+                  style={{objectFit: "contain"}}
                   className="pointer-events-none"
                 />
               )}
