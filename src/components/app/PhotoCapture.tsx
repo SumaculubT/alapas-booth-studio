@@ -26,7 +26,8 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
   useEffect(() => {
     const getCameraPermission = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 1280, height: 720 } });
+        // Request camera access without strict resolution constraints
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
 
         if (videoRef.current) {
@@ -35,6 +36,11 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
+         toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this app.',
+        });
       }
     };
 
@@ -46,7 +52,7 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
             stream.getTracks().forEach((track) => track.stop());
         }
     }
-  }, []);
+  }, [toast]);
 
   const takePicture = () => {
     if (videoRef.current && canvasRef.current) {
@@ -113,17 +119,18 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
             <span className="text-9xl font-bold text-white drop-shadow-lg animate-ping-once">{countdown}</span>
           </div>
         )}
-      </div>
 
-       {!hasCameraPermission && (
-          <Alert variant="destructive">
-              <AlertTitle>Camera Access Required</AlertTitle>
-              <AlertDescription>
-                Please allow camera access to use this feature. Refresh the page after enabling permissions.
-              </AlertDescription>
-          </Alert>
+        {!hasCameraPermission && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background">
+             <Alert variant="destructive" className="max-w-sm">
+                <AlertTitle>Camera Access Required</AlertTitle>
+                <AlertDescription>
+                  Please allow camera access to use this feature. You may need to refresh the page after enabling permissions in your browser settings.
+                </AlertDescription>
+            </Alert>
+          </div>
        )}
-
+      </div>
 
       <div className="space-y-2">
         <Progress value={progress} />
