@@ -47,27 +47,61 @@ function SnapStripStudio() {
   const searchParams = useSearchParams();
   const eventSize = searchParams.get("size") || "2x6";
   const isLandscape = eventSize === "4x6";
-  const aspectRatio = isLandscape ? 1.5 : 2 / 6; // 4x6 -> 6/4 = 1.5, 2x6 -> 6/2 = 3... oh wait, it's w/h so 6/4, 6/2. no, it's 4x6 so 4/6, 2x6. No, it's usually 6x4, 6x2. The image is landscape, so 600/400=1.5. 2x6 is portrait, so 2/6.
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const [templateUrl, setTemplateUrl] = useState<string | null>(null);
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 500 / (isLandscape ? 6/4 : 2/6) });
+  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 750 });
+  const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
-        if (canvasWrapperRef.current) {
-            const parentWidth = canvasWrapperRef.current.offsetWidth;
-            const newWidth = parentWidth * 0.9;
-            const newHeight = newWidth / (isLandscape ? 6/4 : 2/6);
-            setCanvasSize({ width: newWidth, height: newHeight});
-        }
+      if (canvasWrapperRef.current) {
+        const parentWidth = canvasWrapperRef.current.offsetWidth;
+        // Keep a bit of padding
+        const newWidth = parentWidth * 0.9;
+        const newHeight = newWidth / (isLandscape ? 6 / 4 : 2 / 6);
+        setCanvasSize({ width: newWidth, height: newHeight });
+      }
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    // Initial size calculation
     handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [isLandscape]);
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!draggingLayer || !canvasRef.current) return;
+    
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    
+    // Calculate new position relative to the canvas
+    const newX = e.clientX - canvasRect.left - draggingLayer.initialX;
+    const newY = e.clientY - canvasRect.top - draggingLayer.initialY;
+
+    updateLayer(draggingLayer.id, { x: newX, y: newY });
+  };
+  
+  const handleMouseUp = () => {
+    setDraggingLayer(null);
+  };
+
+  useEffect(() => {
+    if (draggingLayer) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingLayer, updateLayer]);
 
 
   const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,6 +143,14 @@ function SnapStripStudio() {
         layer.id === id ? { ...layer, ...newProps } : layer
       )
     );
+  };
+
+  const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layer: Layer) => {
+    setSelectedLayer(layer.id);
+    const initialX = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    const initialY = e.clientY - e.currentTarget.getBoundingClientRect().top;
+    setDraggingLayer({ id: layer.id, initialX, initialY });
+    e.stopPropagation(); // Prevent canvas click
   };
 
   const selectedLayerData = layers.find((l) => l.id === selectedLayer);
@@ -173,8 +215,10 @@ function SnapStripStudio() {
           
           <div ref={canvasWrapperRef} className="flex-1 w-full flex items-center justify-center">
             <div
+              ref={canvasRef}
               className="relative bg-card shadow-lg"
               style={{ width: canvasSize.width, height: canvasSize.height }}
+              onClick={() => setSelectedLayer(null)}
             >
               {templateUrl && (
                 <Image
@@ -188,7 +232,7 @@ function SnapStripStudio() {
               {layers.map((layer) => (
                 <div
                   key={layer.id}
-                  className={`absolute flex items-center justify-center border-2 border-dashed ${
+                  className={`absolute flex items-center justify-center border-2 border-dashed cursor-move ${
                     selectedLayer === layer.id
                       ? "border-primary"
                       : "border-muted-foreground"
@@ -200,7 +244,7 @@ function SnapStripStudio() {
                     height: `${layer.height}px`,
                     transform: `rotate(${layer.rotation}deg)`,
                   }}
-                  onClick={() => setSelectedLayer(layer.id)}
+                  onMouseDown={(e) => handleLayerMouseDown(e, layer)}
                 >
                   <Camera className="text-muted-foreground" />
                 </div>
@@ -241,14 +285,14 @@ function SnapStripStudio() {
                         <div className="space-y-2">
                             <Label>Position (X, Y)</Label>
                             <div className="grid grid-cols-2 gap-2">
-                            <Input type="number" value={selectedLayerData.x} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
-                            <Input type="number" value={selectedLayerData.y} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
+                            <Input type="number" value={Math.round(selectedLayerData.x)} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
+                            <Input type="number" value={Math.round(selectedLayerData.y)} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
                             </div>
                         </div>
                         <div className="space-y-2">
                             <Label>Size (W, H)</Label>
                             <div className="grid grid-cols-2 gap-2">
-                            <Input type="number" value={selectedLayerData.width} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target-value) })} />
+                            <Input type="number" value={selectedLayerData.width} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
                             <Input type="number" value={selectedLayerData.height} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
                             </div>
                         </div>
@@ -276,3 +320,5 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
