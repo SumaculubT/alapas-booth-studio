@@ -378,7 +378,7 @@ function SnapStripStudio() {
                   src={templateUrl}
                   alt="Template"
                   fill
-                  style={{objectFit: "contain", zIndex: layers.length + 1}}
+                  style={{objectFit: "contain", zIndex: 1}}
                   className="pointer-events-none"
                 />
               )}
@@ -395,7 +395,7 @@ function SnapStripStudio() {
                       width: `${layer.width}px`,
                       height: `${layer.height}px`,
                       transform: `rotate(${layer.rotation}deg)`,
-                      zIndex: index + 1
+                      zIndex: selectedLayer === layer.id ? layers.length + 2 : index + 2
                     }}
                     onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
                   >
