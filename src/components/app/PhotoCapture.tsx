@@ -26,7 +26,6 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
   useEffect(() => {
     const getCameraPermission = async () => {
       try {
-        // Request camera access without strict resolution constraints
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
 
@@ -36,7 +35,7 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-         toast({
+        toast({
           variant: 'destructive',
           title: 'Camera Access Denied',
           description: 'Please enable camera permissions in your browser settings to use this app.',
@@ -45,13 +44,13 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
     };
 
     getCameraPermission();
-    
+
     return () => {
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach((track) => track.stop());
         }
-    }
+    };
   }, [toast]);
 
   const takePicture = () => {
@@ -94,7 +93,7 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
         }, 2000); // 2 second delay before next countdown
         return () => clearTimeout(timer);
     }
-  }, [photos, photoCount]);
+  }, [photos, photoCount, startCaptureSequence]);
 
   useEffect(() => {
     if (photos.length === photoCount) {
@@ -121,11 +120,11 @@ export default function PhotoCapture({ onCaptureComplete, photoCount, countdown:
         )}
 
         {!hasCameraPermission && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
              <Alert variant="destructive" className="max-w-sm">
                 <AlertTitle>Camera Access Required</AlertTitle>
                 <AlertDescription>
-                  Please allow camera access to use this feature. You may need to refresh the page after enabling permissions in your browser settings.
+                  Could not start video source. Please ensure your camera is not in use by another application and that you have granted permission. You may need to refresh the page.
                 </AlertDescription>
             </Alert>
           </div>
