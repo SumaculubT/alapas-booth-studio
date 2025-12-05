@@ -31,11 +31,12 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface Layer {
   id: string;
-  type: "image" | "camera";
+  type: "image" | "camera" | "template";
   name: string;
   x: number;
   y: number;
@@ -67,7 +68,6 @@ function SnapStripStudio() {
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const [templateUrl, setTemplateUrl] = useState<string | null>(null);
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 500, height: 750 });
@@ -167,7 +167,21 @@ function SnapStripStudio() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setTemplateUrl(reader.result as string);
+        const newLayer: Layer = {
+          id: `template-${Date.now()}`,
+          type: "template",
+          name: 'Template Image',
+          x: 0,
+          y: 0,
+          width: canvasSize.width,
+          height: canvasSize.height,
+          rotation: 0,
+          isVisible: true,
+          url: reader.result as string,
+        };
+        // Add template as the first layer (bottom of the stack)
+        setLayers(prev => [newLayer, ...prev]);
+        setSelectedLayer(newLayer.id);
       };
       reader.readAsDataURL(file);
     }
@@ -290,6 +304,8 @@ function SnapStripStudio() {
     setDraggedLayerId(null);
   };
 
+  const hasTemplate = layers.some(l => l.type === 'template');
+
   return (
     <SidebarProvider>
       <Sidebar side="right" variant="sidebar" collapsible="icon">
@@ -302,17 +318,7 @@ function SnapStripStudio() {
         <SidebarContent>
           <SidebarGroup>
             <SidebarMenu>
-              {templateUrl && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={selectedLayer === "template"}
-                    onClick={() => setSelectedLayer("template")}
-                  >
-                    Template Image
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {layers.map((layer) => (
+              {[...layers].reverse().map((layer) => (
                 <div
                   key={layer.id}
                   draggable
@@ -328,7 +334,7 @@ function SnapStripStudio() {
                       onClick={() => setSelectedLayer(layer.id)}
                       className={!layer.isVisible ? 'text-muted-foreground' : ''}
                     >
-                      <Camera size={16} />
+                      {layer.type === 'camera' ? <Camera size={16} /> : <ImageIcon size={16} />}
                       {layer.name}
                     </SidebarMenuButton>
                      <Button variant="ghost" size="icon" className="absolute right-1 top-1 h-6 w-6" onClick={(e) => toggleLayerVisibility(e, layer.id)}>
@@ -373,60 +379,84 @@ function SnapStripStudio() {
                 }
               }}
             >
-              {templateUrl && (
-                <Image
-                  src={templateUrl}
-                  alt="Template"
-                  fill
-                  style={{objectFit: "contain", zIndex: 1}}
-                  className="pointer-events-none"
-                />
-              )}
-              {layers.map((layer, index) => (
-                layer.isVisible && (
-                  <div
-                    key={layer.id}
-                    className={`absolute flex items-center justify-center border-2 border-dashed
-                      ${ selectedLayer === layer.id ? "border-primary" : "border-transparent" }
-                    `}
-                    style={{
-                      left: `${layer.x}px`,
-                      top: `${layer.y}px`,
-                      width: `${layer.width}px`,
-                      height: `${layer.height}px`,
-                      transform: `rotate(${layer.rotation}deg)`,
-                      zIndex: selectedLayer === layer.id ? layers.length + 2 : index + 2
-                    }}
-                    onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                  >
-                      <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'}`}>
-                          <div className="text-center text-muted-foreground relative top-1/2 -translate-y-1/2">
-                              <Camera className="mx-auto" />
-                              <span className="text-sm font-semibold">Photo {index + 1}</span>
-                          </div>
-                      </div>
-                    
-                    {selectedLayer === layer.id && (
-                       <>
-                          {resizeHandlePositions.map(direction => (
-                              <div
-                                  key={direction}
-                                  onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
-                                  className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
-                                  style={{
-                                      top: direction.includes('top') ? '-6px' : 'auto',
-                                      bottom: direction.includes('bottom') ? '-6px' : 'auto',
-                                      left: direction.includes('left') ? '-6px' : 'auto',
-                                      right: direction.includes('right') ? '-6px' : 'auto',
-                                      cursor: getCursorForDirection(direction),
-                                  }}
-                              />
-                          ))}
-                      </>
-                    )}
-                  </div>
-                )
-              ))}
+              {layers.map((layer, index) => {
+                if (!layer.isVisible) return null;
+
+                if (layer.type === 'template' && layer.url) {
+                    return (
+                        <div
+                            key={layer.id}
+                            className={`absolute
+                                ${ selectedLayer === layer.id ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }
+                            `}
+                            style={{
+                                left: `${layer.x}px`,
+                                top: `${layer.y}px`,
+                                width: `${layer.width}px`,
+                                height: `${layer.height}px`,
+                                transform: `rotate(${layer.rotation}deg)`,
+                                zIndex: selectedLayer === layer.id ? layers.length + 2 : index + 2,
+                                pointerEvents: 'none'
+                            }}
+                        >
+                            <Image
+                                src={layer.url}
+                                alt={layer.name}
+                                fill
+                                style={{objectFit: "contain"}}
+                                className="pointer-events-none"
+                            />
+                        </div>
+                    )
+                }
+                
+                if (layer.type === 'camera') {
+                    return (
+                        <div
+                            key={layer.id}
+                            className={`absolute flex items-center justify-center border-2 border-dashed
+                            ${ selectedLayer === layer.id ? "border-primary" : "border-transparent" }
+                            `}
+                            style={{
+                            left: `${layer.x}px`,
+                            top: `${layer.y}px`,
+                            width: `${layer.width}px`,
+                            height: `${layer.height}px`,
+                            transform: `rotate(${layer.rotation}deg)`,
+                            zIndex: selectedLayer === layer.id ? layers.length + 2 : index + 2
+                            }}
+                            onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
+                        >
+                            <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'}`}>
+                                <div className="text-center text-muted-foreground relative top-1/2 -translate-y-1/2">
+                                    <Camera className="mx-auto" />
+                                    <span className="text-sm font-semibold">{layer.name}</span>
+                                </div>
+                            </div>
+                            
+                            {selectedLayer === layer.id && (
+                            <>
+                                {resizeHandlePositions.map(direction => (
+                                    <div
+                                        key={direction}
+                                        onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
+                                        className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
+                                        style={{
+                                            top: direction.includes('top') ? '-6px' : 'auto',
+                                            bottom: direction.includes('bottom') ? '-6px' : 'auto',
+                                            left: direction.includes('left') ? '-6px' : 'auto',
+                                            right: direction.includes('right') ? '-6px' : 'auto',
+                                            cursor: getCursorForDirection(direction),
+                                        }}
+                                    />
+                                ))}
+                            </>
+                            )}
+                        </div>
+                    )
+                }
+                return null;
+              })}
             </div>
           </div>
         </main>
@@ -441,7 +471,7 @@ function SnapStripStudio() {
         </SidebarHeader>
         <SidebarContent>
             <div className="p-4 space-y-6">
-                {!selectedLayerData && !templateUrl && (
+                {!hasTemplate && (
                     <Label
                         htmlFor="template-upload"
                         className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
@@ -459,7 +489,10 @@ function SnapStripStudio() {
 
                 {selectedLayerData && (
                     <div className="space-y-4">
-                        <h3 className="font-medium">{selectedLayerData.name}</h3>
+                        <div className="space-y-2">
+                             <Label htmlFor="layer-name">Layer Name</Label>
+                             <Input id="layer-name" value={selectedLayerData.name} onChange={e => updateLayer(selectedLayerData.id, { name: e.target.value })} />
+                        </div>
                         <div className="space-y-2">
                             <Label>Position (X, Y)</Label>
                             <div className="grid grid-cols-2 gap-2">
@@ -498,3 +531,6 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+
+    
