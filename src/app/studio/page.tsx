@@ -225,6 +225,26 @@ function SnapStripStudio() {
     });
   };
 
+  const getCursorForDirection = (direction: ResizeDirection) => {
+    switch (direction) {
+      case 'top-left':
+      case 'bottom-right':
+        return 'nwse-resize';
+      case 'top-right':
+      case 'bottom-left':
+        return 'nesw-resize';
+      case 'top':
+      case 'bottom':
+        return 'ns-resize';
+      case 'left':
+      case 'right':
+        return 'ew-resize';
+      default:
+        return 'auto';
+    }
+  };
+
+
   const selectedLayerData = layers.find((l) => l.id === selectedLayer);
   const resizeHandlePositions: ResizeDirection[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 
@@ -292,7 +312,11 @@ function SnapStripStudio() {
               ref={canvasRef}
               className="relative bg-card shadow-lg"
               style={{ width: canvasSize.width, height: canvasSize.height }}
-              onMouseDown={() => setSelectedLayer(null)}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) {
+                    setSelectedLayer(null)
+                }
+              }}
             >
               {templateUrl && (
                 <Image
@@ -337,7 +361,7 @@ function SnapStripStudio() {
                                     bottom: direction.includes('bottom') ? '-6px' : 'auto',
                                     left: direction.includes('left') ? '-6px' : 'auto',
                                     right: direction.includes('right') ? '-6px' : 'auto',
-                                    cursor: `${direction.startsWith('top') || direction.startsWith('bottom') ? 'ns' : ''}-${direction.endsWith('left') || direction.endsWith('right') ? 'ew' : ''}-resize`
+                                    cursor: getCursorForDirection(direction),
                                 }}
                             />
                         ))}
