@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Camera as CameraIcon, CheckCircle, X } from "lucide-react";
@@ -15,16 +15,47 @@ interface PhotoCaptureProps {
   countdown: number;
 }
 
+type CaptureState = 'welcome' | 'capturing' | 'finished';
+
 export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, countdown: initialCountdown }: PhotoCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
+  const [isTakingPicture, setIsTakingPicture] = useState(false);
+  const [captureState, setCaptureState] = useState<CaptureState>('welcome');
   const { toast } = useToast();
+  
+  const startSession = useCallback(() => {
+    if(captureState === 'welcome') {
+      setCaptureState('capturing');
+    }
+  }, [captureState]);
 
   useEffect(() => {
+    if (captureState === 'welcome') {
+      const handleInteraction = (event: MouseEvent | KeyboardEvent) => {
+        if (event instanceof KeyboardEvent && event.code !== 'Space') {
+          return;
+        }
+        startSession();
+      };
+
+      window.addEventListener('click', handleInteraction);
+      window.addEventListener('keydown', handleInteraction);
+
+      return () => {
+        window.removeEventListener('click', handleInteraction);
+        window.removeEventListener('keydown', handleInteraction);
+      };
+    }
+  }, [captureState, startSession]);
+
+
+  useEffect(() => {
+    if (captureState !== 'capturing') return;
+
     const getCameraPermission = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -52,7 +83,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
             stream.getTracks().forEach((track) => track.stop());
         }
     };
-  }, [toast]);
+  }, [captureState, toast]);
 
   const takePicture = () => {
     if (videoRef.current && canvasRef.current) {
@@ -69,13 +100,13 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
         setPhotos((prev) => [...prev, dataUrl]);
       }
     }
-    setIsCapturing(false);
+    setIsTakingPicture(false);
   };
 
-  const startCaptureSequence = () => {
-    if (photos.length >= photoCount || isCapturing) return;
+  const startCaptureSequence = useCallback(() => {
+    if (photos.length >= photoCount || isTakingPicture) return;
 
-    setIsCapturing(true);
+    setIsTakingPicture(true);
     let count = initialCountdown;
     setCountdown(count);
     const interval = setInterval(() => {
@@ -87,9 +118,17 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
         takePicture();
       }
     }, 1000);
-  };
+  }, [photos.length, photoCount, isTakingPicture, initialCountdown]);
   
-  // This effect will trigger the sequence for subsequent photos after a delay
+  useEffect(() => {
+    if (captureState === 'capturing' && photos.length === 0) {
+        const timer = setTimeout(() => {
+            startCaptureSequence();
+        }, 1000); // Initial delay
+        return () => clearTimeout(timer);
+    }
+  }, [captureState, photos.length, startCaptureSequence]);
+
   useEffect(() => {
     if (photos.length > 0 && photos.length < photoCount) {
         const timer = setTimeout(() => {
@@ -97,16 +136,25 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
         }, 2000); // 2 second delay before next countdown
         return () => clearTimeout(timer);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photos, photoCount]); // We only want to run this when photos state changes.
+  }, [photos, photoCount, startCaptureSequence]);
 
   useEffect(() => {
     if (photos.length === photoCount && photoCount > 0) {
+      setCaptureState('finished');
       setTimeout(() => onCaptureComplete(photos), 1000);
     }
   }, [photos, photoCount, onCaptureComplete]);
   
-  const showStartButton = photos.length === 0 && !isCapturing;
+  if (captureState === 'welcome') {
+    return (
+       <div className="fixed inset-0 bg-black cursor-pointer" onClick={startSession}>
+          <Image src="/welcome.png" alt="Welcome to the photo booth" layout="fill" objectFit="cover" />
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white text-center p-4 bg-black/50 rounded-xl">
+             <h1 className="text-2xl font-bold">Touch the screen or press spacebar to start!</h1>
+          </div>
+       </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black text-white">
@@ -148,7 +196,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
           </div>
         )}
 
-      {!hasCameraPermission && (
+      {!hasCameraPermission && captureState === 'capturing' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
             <Alert variant="destructive" className="max-w-sm">
               <AlertTitle>Camera Access Required</AlertTitle>
@@ -156,15 +204,6 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
                 Please allow camera access to use this feature. You may need to refresh the page and grant permission.
               </AlertDescription>
             </Alert>
-        </div>
-      )}
-
-      {showStartButton && (
-         <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
-          <Button onClick={startCaptureSequence} size="lg" className="h-16 rounded-full px-8 text-lg" disabled={!hasCameraPermission}>
-            <CameraIcon className="mr-2 h-6 w-6" />
-            Start Session
-          </Button>
         </div>
       )}
 
@@ -182,7 +221,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
         </div>
       </div>
       
-      {photos.length === photoCount && photoCount > 0 && (
+      {captureState === 'finished' && (
          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="flex items-center justify-center text-white text-lg">
                 <CheckCircle className="mr-2 h-5 w-5" />
