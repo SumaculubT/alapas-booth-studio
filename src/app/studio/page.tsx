@@ -465,7 +465,7 @@ function SnapStripStudio() {
           >
             <div
               ref={canvasRef}
-              className="relative bg-card shadow-lg origin-top-left"
+              className="relative bg-card shadow-lg"
               style={{ 
                 width: canvasSize.width, 
                 height: canvasSize.height,
