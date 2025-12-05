@@ -2,12 +2,9 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import PhotoCapture from '@/components/app/PhotoCapture';
 import PhotoStripPreview from '@/components/app/PhotoStripPreview';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { getTemplateImage } from '@/lib/template-cache';
 
 type Layer = {
@@ -28,6 +25,7 @@ type Layer = {
 type SessionStep = 'capture' | 'preview';
 
 function PhotoBoothSession() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<SessionStep>('capture');
   const [templateLayout, setTemplateLayout] = useState<Layer[] | null>(null);
@@ -67,11 +65,15 @@ function PhotoBoothSession() {
         }
       }
       setTemplateLayout(layout);
+    } else {
+      // If there's no layout, we can't proceed. Go back to the studio.
+      router.push(`/studio?size=${eventSize}`);
+      return;
     }
     
     // Directly go to capture step
     setStep('capture');
-  }, [eventSize]);
+  }, [eventSize, router]);
 
 
   const handleCaptureComplete = (photos: string[]) => {
@@ -83,6 +85,10 @@ function PhotoBoothSession() {
     setCapturedPhotos([]);
     setStep('capture');
   };
+  
+  const handleExit = () => {
+    router.push('/studio');
+  };
 
   const renderStep = () => {
     switch (step) {
@@ -90,6 +96,7 @@ function PhotoBoothSession() {
         return (
           <PhotoCapture
             onCaptureComplete={handleCaptureComplete}
+            onExit={handleExit}
             photoCount={photoCount}
             countdown={countdown}
           />
@@ -97,12 +104,24 @@ function PhotoBoothSession() {
       case 'preview':
         if (templateLayout) {
           return (
-            <PhotoStripPreview
-              templateLayout={templateLayout}
-              photos={capturedPhotos}
-              onRestart={handleRestart}
-              eventSize={eventSize}
-            />
+            <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8">
+              <div className="w-full max-w-md mx-auto">
+                 <header className="flex justify-center items-center mb-8 relative">
+                   <h1 className="text-2xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+                    Your Masterpiece
+                  </h1>
+                </header>
+                <PhotoStripPreview
+                  templateLayout={templateLayout}
+                  photos={capturedPhotos}
+                  onRestart={handleRestart}
+                  eventSize={eventSize}
+                />
+                 <footer className="text-center mt-8 text-sm text-muted-foreground">
+                  <p>Powered by Next.js and Firebase</p>
+                </footer>
+              </div>
+            </main>
           );
         }
         return <div>Loading template...</div>;
@@ -112,28 +131,9 @@ function PhotoBoothSession() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8">
-      <div className="w-full max-w-md mx-auto">
-        <header className="flex justify-between items-center mb-8">
-           <Link href="/studio">
-             <Button variant="ghost">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Studio
-            </Button>
-           </Link>
-           <h1 className="text-2xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            SnapStrip Session
-          </h1>
-        </header>
-
-        <div className="w-full">
-            {renderStep()}
-        </div>
-
-        <footer className="text-center mt-8 text-sm text-muted-foreground">
-          <p>Powered by Next.js and Firebase</p>
-        </footer>
-      </div>
-    </main>
+    <>
+      {renderStep()}
+    </>
   );
 }
 
