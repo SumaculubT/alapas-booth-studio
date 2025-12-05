@@ -292,7 +292,7 @@ function SnapStripStudio() {
               ref={canvasRef}
               className="relative bg-card shadow-lg"
               style={{ width: canvasSize.width, height: canvasSize.height }}
-              onClick={() => setSelectedLayer(null)}
+              onMouseDown={() => setSelectedLayer(null)}
             >
               {templateUrl && (
                 <Image
