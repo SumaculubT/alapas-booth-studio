@@ -589,6 +589,7 @@ function SnapStripStudio() {
                                 src={layer.url}
                                 alt={layer.name}
                                 fill
+                                unoptimized
                                 style={{objectFit: "contain"}}
                                 className="pointer-events-none"
                             />
