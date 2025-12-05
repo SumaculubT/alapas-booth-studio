@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 
 export default function SetupPage() {
   return (
-    <main className="flex h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
+    <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8 pt-16">
       <div className="w-full max-w-4xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
