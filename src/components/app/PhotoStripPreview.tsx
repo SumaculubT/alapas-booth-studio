@@ -44,10 +44,11 @@ const generateStrip = async (
     if (!ctx) return "";
 
     const isLandscape = eventSize === '4x6';
-    const studioCanvasWidth = isLandscape ? 600 : 400;
-    const studioCanvasHeight = isLandscape ? 400 : 1200;
+    // The canvas size from the studio editor
+    const templateLayerForSize = templateLayout.find(l => l.type === 'template');
+    const studioCanvasWidth = templateLayerForSize?.width || (isLandscape ? 600 : 400);
+    const studioCanvasHeight = templateLayerForSize?.height || (isLandscape ? 400 : 1200);
 
-    const templateLayer = templateLayout.find(l => l.type === 'template');
     const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
 
     // Determine target dimensions while maintaining aspect ratio
@@ -64,6 +65,7 @@ const generateStrip = async (
 
     const imagePromises: Promise<HTMLImageElement>[] = [];
       
+    const templateLayer = templateLayout.find(l => l.type === 'template');
     if (templateLayer && templateLayer.url) {
         const templateImg = new window.Image();
         templateImg.crossOrigin = 'anonymous';
@@ -142,7 +144,7 @@ export default function PhotoStripPreview({
     if (photos.length === 0 || !templateLayout) return;
 
     // Generate a smaller preview quickly for display
-    const previewWidth = eventSize === '4x6' ? 800 : 400;
+    const previewWidth = eventSize === '4x6' ? 800 : 600;
     generateStrip(templateLayout, photos, eventSize, previewWidth)
         .then(imageUrl => {
             setFinalImage(imageUrl);
@@ -195,7 +197,7 @@ export default function PhotoStripPreview({
       onRestart();
     } else if (event.key === ' ') {
       event.preventDefault();
-      setIsFullscreen(true);
+      setIsFullscreen(prev => !prev);
     }
   }, [onRestart]);
 
@@ -206,11 +208,14 @@ export default function PhotoStripPreview({
     };
   }, [handleKeyDown]);
 
-  const aspectRatio = eventSize === "4x6" ? "aspect-[3/2]" : "aspect-[2/6]";
+  const templateLayerForSize = templateLayout.find(l => l.type === 'template');
+  const studioCanvasWidth = templateLayerForSize?.width || (eventSize === '4x6' ? 600 : 400);
+  const studioCanvasHeight = templateLayerForSize?.height || (eventSize === '4x6' ? 400 : 1200);
+  const aspectRatio = `aspect-[${studioCanvasWidth}/${studioCanvasHeight}]`;
+
 
   return (
     <div className="space-y-4 text-center w-full">
-      <h2 className="text-2xl font-semibold">Your Photo Strip!</h2>
       <p className="text-muted-foreground">Save it, share it, or start over.</p>
 
       <div className={`relative w-full max-w-lg mx-auto ${aspectRatio} bg-muted rounded-lg overflow-hidden shadow-lg`}>
