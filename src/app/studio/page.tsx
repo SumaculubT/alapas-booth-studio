@@ -74,7 +74,15 @@ function SnapStripStudio() {
 
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 750 });
+  
+  const getInitialCanvasSize = () => {
+    if (isLandscape) {
+      return { width: 600, height: 400 };
+    }
+    return { width: 400, height: 1200 };
+  };
+
+  const [canvasSize, setCanvasSize] = useState(getInitialCanvasSize());
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
   const [resizingState, setResizingState] = useState<{ layerId: string, direction: ResizeDirection, initialX: number, initialY: number } | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -88,22 +96,6 @@ function SnapStripStudio() {
       )
     );
   }, []);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (canvasWrapperRef.current) {
-        const parentWidth = canvasWrapperRef.current.offsetWidth;
-        // Keep a bit of padding
-        const newWidth = parentWidth * 0.9;
-        const newHeight = newWidth / (isLandscape ? 6 / 4 : 2 / 6);
-        setCanvasSize({ width: newWidth, height: newHeight });
-      }
-    };
-    window.addEventListener("resize", handleResize);
-    // Initial size calculation
-    handleResize();
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isLandscape]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!canvasRef.current) return;
@@ -479,11 +471,6 @@ function SnapStripStudio() {
                                     }}
                                 />
                             ))}
-                             {layer.type === 'template' && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-                                {/* Visual hint for draggable area on template */}
-                              </div>
-                            )}
                         </>
                         )}
                     </div>
@@ -575,3 +562,5 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
