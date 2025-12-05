@@ -30,74 +30,65 @@ interface PhotoStripPreviewProps {
   eventSize: "2x6" | "4x6" | string;
 }
 
-export default function PhotoStripPreview({
-  templateLayout,
-  photos,
-  onRestart,
-  eventSize,
-}: PhotoStripPreviewProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
-  const [finalImage, setFinalImage] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+const DPI = 300; // for high quality download
 
-  const templateLayer = templateLayout.find(l => l.type === 'template');
-  const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
+const generateStrip = async (
+    templateLayout: Layer[], 
+    photos: string[], 
+    eventSize: string,
+    targetWidth: number
+): Promise<string> => {
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
 
-  useEffect(() => {
-    const generateStrip = async () => {
-      if (!canvasRef.current || photos.length === 0 || !templateLayout) return;
+    const isLandscape = eventSize === '4x6';
+    const studioCanvasWidth = isLandscape ? 600 : 400;
+    const studioCanvasHeight = isLandscape ? 400 : 1200;
 
-      setIsGenerating(true);
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+    const templateLayer = templateLayout.find(l => l.type === 'template');
+    const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
+
+    // Determine target dimensions while maintaining aspect ratio
+    const aspectRatio = studioCanvasWidth / studioCanvasHeight;
+    const targetHeight = targetWidth / aspectRatio;
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      const isLandscape = eventSize === '4x6';
+    const scaleX = canvas.width / studioCanvasWidth;
+    const scaleY = canvas.height / studioCanvasHeight;
 
-      // Define native resolution based on 300 DPI
-      const nativeWidth = isLandscape ? 1800 : 600; // 6" or 2"
-      const nativeHeight = isLandscape ? 1200 : 1800; // 4" or 6"
+    const imagePromises: Promise<HTMLImageElement>[] = [];
       
-      canvas.width = nativeWidth;
-      canvas.height = nativeHeight;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const studioCanvasWidth = isLandscape ? 600 : 400;
-      const studioCanvasHeight = isLandscape ? 400 : 1200;
-      const scaleX = canvas.width / studioCanvasWidth;
-      const scaleY = canvas.height / studioCanvasHeight;
-
-      // Load all images (template and photos)
-      const imagePromises: Promise<HTMLImageElement>[] = [];
-      
-      if (templateLayer && templateLayer.url) {
+    if (templateLayer && templateLayer.url) {
         const templateImg = new window.Image();
         templateImg.crossOrigin = 'anonymous';
         templateImg.src = templateLayer.url;
         imagePromises.push(new Promise((resolve, reject) => {
-          templateImg.onload = () => resolve(templateImg);
-          templateImg.onerror = reject;
+            templateImg.onload = () => resolve(templateImg);
+            templateImg.onerror = reject;
         }));
-      }
+    }
 
-      photos.forEach(p => {
+    photos.forEach(p => {
         const img = new window.Image();
         img.src = p;
         imagePromises.push(new Promise<HTMLImageElement>(resolve => {
             img.onload = () => resolve(img);
         }));
-      });
+    });
 
-      const loadedImages = await Promise.all(imagePromises);
-      const templateImage = (templateLayer && templateLayer.url) ? loadedImages.shift() : null;
-      const photoImages = loadedImages;
+    const loadedImages = await Promise.all(imagePromises);
+    const templateImage = (templateLayer && templateLayer.url) ? loadedImages.shift() : null;
+    const photoImages = loadedImages;
 
-      // Draw photos first
-      photoImages.forEach((photo, index) => {
-          const layer = cameraLayers[index];
-          if (layer) {
+    photoImages.forEach((photo, index) => {
+        const layer = cameraLayers[index];
+        if (layer) {
             const pos = {
                 x: layer.x * scaleX,
                 y: layer.y * scaleY,
@@ -127,27 +118,51 @@ export default function PhotoStripPreview({
             ctx.rotate(layer.rotation * Math.PI / 180);
             ctx.drawImage(photo, sx, sy, sWidth, sHeight, -pos.width/2, -pos.height/2, pos.width, pos.height);
             ctx.restore();
-          }
-      });
+        }
+    });
 
-      // Draw template on top
-      if (templateImage) {
+    if (templateImage) {
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
-      }
+    }
+    
+    return canvas.toDataURL("image/png");
+}
 
-      setFinalImage(canvas.toDataURL("image/png"));
-      setIsGenerating(false);
-    };
+export default function PhotoStripPreview({
+  templateLayout,
+  photos,
+  onRestart,
+  eventSize,
+}: PhotoStripPreviewProps) {
+  const [isGenerating, setIsGenerating] = useState(true);
+  const [finalImage, setFinalImage] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-    generateStrip();
-  }, [templateLayout, photos, eventSize, cameraLayers, templateLayer]);
+  useEffect(() => {
+    if (photos.length === 0 || !templateLayout) return;
 
-  const handleDownload = () => {
-    if (!finalImage) return;
+    // Generate a smaller preview quickly for display
+    const previewWidth = eventSize === '4x6' ? 800 : 400;
+    generateStrip(templateLayout, photos, eventSize, previewWidth)
+        .then(imageUrl => {
+            setFinalImage(imageUrl);
+            setIsGenerating(false);
+        });
+        
+  }, [templateLayout, photos, eventSize]);
+
+  const handleDownload = async () => {
+    setIsGenerating(true);
+    const isLandscape = eventSize === '4x6';
+    const nativeWidth = isLandscape ? 6 * DPI : 2 * DPI; // 6" or 2"
+    
+    const highResImage = await generateStrip(templateLayout, photos, eventSize, nativeWidth);
+
     const link = document.createElement("a");
     link.download = "snapstrip.png";
-    link.href = finalImage;
+    link.href = highResImage;
     link.click();
+    setIsGenerating(false);
   };
 
   const handleShare = async () => {
@@ -191,36 +206,32 @@ export default function PhotoStripPreview({
     };
   }, [handleKeyDown]);
 
-  const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/6]";
+  const aspectRatio = eventSize === "4x6" ? "aspect-[3/2]" : "aspect-[2/6]";
 
   return (
-    <div className="space-y-4 text-center">
+    <div className="space-y-4 text-center w-full">
       <h2 className="text-2xl font-semibold">Your Photo Strip!</h2>
       <p className="text-muted-foreground">Save it, share it, or start over.</p>
 
-      <div className={`relative w-full ${aspectRatio} bg-muted rounded-lg overflow-hidden`}>
+      <div className={`relative w-full max-w-lg mx-auto ${aspectRatio} bg-muted rounded-lg overflow-hidden shadow-lg`}>
         {isGenerating && <Skeleton className="w-full h-full" />}
         {finalImage && (
           <Image
             src={finalImage}
             alt="Final photo strip"
-            width={eventSize === "4x6" ? 1800 : 600}
-            height={eventSize === "4x6" ? 1200 : 1800}
-            className="w-full h-full object-contain"
+            fill
+            className="object-contain"
           />
         )}
-        <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="max-w-lg mx-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Button onClick={onRestart} variant="outline" className="w-full">
           <RefreshCw className="mr-2 h-4 w-4" /> Start Over (Enter)
         </Button>
         <Button onClick={() => setIsFullscreen(true)} disabled={isGenerating} className="w-full">
           <Expand className="mr-2 h-4 w-4" /> Fullscreen (Space)
         </Button>
-      </div>
-       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Button onClick={handleDownload} disabled={isGenerating} className="w-full">
           <Download className="mr-2 h-4 w-4" /> Download
         </Button>
@@ -249,3 +260,5 @@ export default function PhotoStripPreview({
     </div>
   );
 }
+
+    
