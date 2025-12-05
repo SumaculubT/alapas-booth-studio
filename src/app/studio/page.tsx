@@ -197,8 +197,8 @@ function SnapStripStudio() {
   }
 
   const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string) => {
-    setSelectedLayer(layerId);
     e.stopPropagation();
+    setSelectedLayer(layerId);
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     const initialX = e.clientX - canvasRect.left;
