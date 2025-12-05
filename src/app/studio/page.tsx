@@ -33,6 +33,7 @@ import {
   EyeOff,
   Image as ImageIcon,
 } from "lucide-react";
+import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
 
 interface Layer {
   id: string;
@@ -74,6 +75,8 @@ function SnapStripStudio() {
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
   const [resizingState, setResizingState] = useState<{ layerId: string, direction: ResizeDirection, initialX: number, initialY: number } | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -305,6 +308,14 @@ function SnapStripStudio() {
   };
 
   const hasTemplate = layers.some(l => l.type === 'template');
+  const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
+
+  const handleStartSession = (settings: { countdown: number; filter: string }) => {
+    console.log("Starting session with settings:", settings);
+    // Here you would navigate to the actual photo capture page
+    // For now, we just close the dialog
+    setIsSettingsOpen(false);
+  };
 
   return (
     <SidebarProvider>
@@ -361,7 +372,7 @@ function SnapStripStudio() {
             </Button>
             <h1 className="text-2xl font-bold">Studio Editor</h1>
             <div className="flex items-center gap-2">
-                <Button>
+                <Button onClick={() => setIsSettingsOpen(true)}>
                     Start Session
                 </Button>
                 <SidebarTrigger />
@@ -382,80 +393,90 @@ function SnapStripStudio() {
               {layers.map((layer, index) => {
                 if (!layer.isVisible) return null;
 
-                if (layer.type === 'template' && layer.url) {
-                    return (
-                        <div
-                            key={layer.id}
-                            className={`absolute
-                                ${ selectedLayer === layer.id ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }
-                            `}
-                            style={{
-                                left: `${layer.x}px`,
-                                top: `${layer.y}px`,
-                                width: `${layer.width}px`,
-                                height: `${layer.height}px`,
-                                transform: `rotate(${layer.rotation}deg)`,
-                                zIndex: selectedLayer === layer.id ? layers.length + 2 : index + 2,
-                                pointerEvents: 'none'
-                            }}
-                        >
-                            <Image
+                const isSelected = selectedLayer === layer.id;
+
+                const commonStyle: React.CSSProperties = {
+                    left: `${layer.x}px`,
+                    top: `${layer.y}px`,
+                    width: `${layer.width}px`,
+                    height: `${layer.height}px`,
+                    transform: `rotate(${layer.rotation}deg)`,
+                    zIndex: isSelected ? layers.length + 1 : index,
+                };
+                
+                const boxContent = (
+                    <div
+                        key={layer.id}
+                        onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
+                        className={`absolute ${ isSelected ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }`}
+                        style={commonStyle}
+                    >
+                        {layer.type === 'template' && layer.url && (
+                             <Image
                                 src={layer.url}
                                 alt={layer.name}
                                 fill
                                 style={{objectFit: "contain"}}
                                 className="pointer-events-none"
                             />
-                        </div>
-                    )
-                }
-                
-                if (layer.type === 'camera') {
-                    return (
-                        <div
-                            key={layer.id}
-                            className={`absolute flex items-center justify-center border-2 border-dashed
-                            ${ selectedLayer === layer.id ? "border-primary" : "border-transparent" }
-                            `}
-                            style={{
-                            left: `${layer.x}px`,
-                            top: `${layer.y}px`,
-                            width: `${layer.width}px`,
-                            height: `${layer.height}px`,
-                            transform: `rotate(${layer.rotation}deg)`,
-                            zIndex: selectedLayer === layer.id ? layers.length + 2 : index + 2
-                            }}
-                            onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                        >
-                            <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'}`}>
-                                <div className="text-center text-muted-foreground relative top-1/2 -translate-y-1/2">
+                        )}
+
+                        {layer.type === 'camera' && (
+                            <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'} flex items-center justify-center`}>
+                                <div className="text-center text-muted-foreground">
                                     <Camera className="mx-auto" />
                                     <span className="text-sm font-semibold">{layer.name}</span>
                                 </div>
                             </div>
-                            
-                            {selectedLayer === layer.id && (
-                            <>
-                                {resizeHandlePositions.map(direction => (
-                                    <div
-                                        key={direction}
-                                        onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
-                                        className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
-                                        style={{
-                                            top: direction.includes('top') ? '-6px' : 'auto',
-                                            bottom: direction.includes('bottom') ? '-6px' : 'auto',
-                                            left: direction.includes('left') ? '-6px' : 'auto',
-                                            right: direction.includes('right') ? '-6px' : 'auto',
-                                            cursor: getCursorForDirection(direction),
-                                        }}
-                                    />
-                                ))}
-                            </>
-                            )}
+                        )}
+
+                        {isSelected && layer.type !== 'template' && (
+                        <>
+                            {resizeHandlePositions.map(direction => (
+                                <div
+                                    key={direction}
+                                    onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
+                                    className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
+                                    style={{
+                                        top: direction.includes('top') ? '-6px' : 'auto',
+                                        bottom: direction.includes('bottom') ? '-6px' : 'auto',
+                                        left: direction.includes('left') ? '-6px' : 'auto',
+                                        right: direction.includes('right') ? '-6px' : 'auto',
+                                        cursor: getCursorForDirection(direction),
+                                        zIndex: layers.length + 2,
+                                    }}
+                                />
+                            ))}
+                        </>
+                        )}
+                    </div>
+                );
+
+                if (layer.type === 'template') {
+                    // Templates have pointer-events none to allow clicking through
+                    return (
+                         <div
+                            key={layer.id}
+                            style={commonStyle}
+                            className={`absolute ${ isSelected ? "border-2 border-dashed border-primary" : "" }`}
+                            onMouseDown={(e) => {
+                                e.stopPropagation();
+                                handleLayerMouseDown(e, layer.id)
+                            }}
+                        >
+                            <Image
+                                src={layer.url!}
+                                alt={layer.name}
+                                fill
+                                style={{objectFit: "contain"}}
+                                className="pointer-events-none"
+                            />
                         </div>
-                    )
+                    );
                 }
-                return null;
+                
+                return boxContent;
+
               })}
             </div>
           </div>
@@ -493,24 +514,28 @@ function SnapStripStudio() {
                              <Label htmlFor="layer-name">Layer Name</Label>
                              <Input id="layer-name" value={selectedLayerData.name} onChange={e => updateLayer(selectedLayerData.id, { name: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Position (X, Y)</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                            <Input type="number" value={Math.round(selectedLayerData.x)} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
-                            <Input type="number" value={Math.round(selectedLayerData.y)} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Size (W, H)</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                            <Input type="number" value={Math.round(selectedLayerData.width)} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
-                            <Input type="number" value={Math.round(selectedLayerData.height)} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Rotation</Label>
-                            <Slider value={[selectedLayerData.rotation]} max={360} step={1} onValueChange={([val]) => updateLayer(selectedLayerData.id, { rotation: val })} />
-                        </div>
+                        {selectedLayerData.type !== 'template' && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label>Position (X, Y)</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                    <Input type="number" value={Math.round(selectedLayerData.x)} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
+                                    <Input type="number" value={Math.round(selectedLayerData.y)} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Size (W, H)</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                    <Input type="number" value={Math.round(selectedLayerData.width)} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
+                                    <Input type="number" value={Math.round(selectedLayerData.height)} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Rotation</Label>
+                                    <Slider value={[selectedLayerData.rotation]} max={360} step={1} onValueChange={([val]) => updateLayer(selectedLayerData.id, { rotation: val })} />
+                                </div>
+                            </>
+                        )}
                         <Button variant="destructive" onClick={() => removeLayer(selectedLayerData.id)} className="w-full">
                             <Trash2 className="mr-2"/>
                             Delete Layer
@@ -520,6 +545,14 @@ function SnapStripStudio() {
             </div>
         </SidebarContent>
       </Sidebar>
+
+      <SessionSettingsDialog
+        isOpen={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        onStartSession={handleStartSession}
+        photoCount={cameraLayersCount}
+        eventSize={eventSize}
+      />
     </SidebarProvider>
   );
 }
@@ -531,6 +564,3 @@ export default function StudioPage() {
     </Suspense>
   );
 }
-
-
-    
