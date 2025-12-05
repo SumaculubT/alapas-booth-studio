@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Camera as CameraIcon, CheckCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import welcomeImage from "@/lib/welcome.webp";
 
 interface PhotoCaptureProps {
   onCaptureComplete: (photos: string[]) => void;
@@ -148,7 +149,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   if (captureState === 'welcome') {
     return (
        <div className="fixed inset-0 bg-black cursor-pointer" onClick={startSession}>
-          <Image src="/welcome.png" alt="Welcome to the photo booth" layout="fill" objectFit="cover" />
+          <Image src={welcomeImage} alt="Welcome to the photo booth" layout="fill" objectFit="cover" placeholder="blur" />
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white text-center p-4 bg-black/50 rounded-xl">
              <h1 className="text-2xl font-bold">Touch the screen or press spacebar to start!</h1>
           </div>
