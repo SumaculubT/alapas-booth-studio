@@ -29,6 +29,8 @@ import {
   Trash2,
   ArrowLeft,
   Settings,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface Layer {
@@ -40,6 +42,7 @@ interface Layer {
   width: number;
   height: number;
   rotation: number;
+  isVisible: boolean;
   url?: string;
   bgColor?: string;
 }
@@ -183,6 +186,7 @@ function SnapStripStudio() {
       width: 150,
       height: 150,
       rotation: 0,
+      isVisible: true,
       bgColor: photoBoxColors[colorIndex],
     };
     setLayers([...layers, newLayer]);
@@ -193,6 +197,14 @@ function SnapStripStudio() {
     setLayers(layers.filter(layer => layer.id !== id));
     if (selectedLayer === id) {
         setSelectedLayer(null);
+    }
+  }
+
+  const toggleLayerVisibility = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const layer = layers.find(l => l.id === id);
+    if(layer) {
+      updateLayer(id, { isVisible: !layer.isVisible });
     }
   }
 
@@ -314,10 +326,14 @@ function SnapStripStudio() {
                     <SidebarMenuButton
                       isActive={layer.id === selectedLayer}
                       onClick={() => setSelectedLayer(layer.id)}
+                      className={!layer.isVisible ? 'text-muted-foreground' : ''}
                     >
                       <Camera size={16} />
                       {layer.name}
                     </SidebarMenuButton>
+                     <Button variant="ghost" size="icon" className="absolute right-1 top-1 h-6 w-6" onClick={(e) => toggleLayerVisibility(e, layer.id)}>
+                        {layer.isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                     </Button>
                   </SidebarMenuItem>
                 </div>
               ))}
@@ -367,47 +383,49 @@ function SnapStripStudio() {
                 />
               )}
               {layers.map((layer, index) => (
-                <div
-                  key={layer.id}
-                  className={`absolute flex items-center justify-center border-2 border-dashed
-                    ${ selectedLayer === layer.id ? "border-primary" : "border-transparent" }
-                  `}
-                  style={{
-                    left: `${layer.x}px`,
-                    top: `${layer.y}px`,
-                    width: `${layer.width}px`,
-                    height: `${layer.height}px`,
-                    transform: `rotate(${layer.rotation}deg)`,
-                    zIndex: index + 1
-                  }}
-                  onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                >
-                    <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'}`}>
-                        <div className="text-center text-muted-foreground relative top-1/2 -translate-y-1/2">
-                            <Camera className="mx-auto" />
-                            <span className="text-sm font-semibold">Photo {index + 1}</span>
-                        </div>
-                    </div>
-                  
-                  {selectedLayer === layer.id && (
-                     <>
-                        {resizeHandlePositions.map(direction => (
-                            <div
-                                key={direction}
-                                onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
-                                className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
-                                style={{
-                                    top: direction.includes('top') ? '-6px' : 'auto',
-                                    bottom: direction.includes('bottom') ? '-6px' : 'auto',
-                                    left: direction.includes('left') ? '-6px' : 'auto',
-                                    right: direction.includes('right') ? '-6px' : 'auto',
-                                    cursor: getCursorForDirection(direction),
-                                }}
-                            />
-                        ))}
-                    </>
-                  )}
-                </div>
+                layer.isVisible && (
+                  <div
+                    key={layer.id}
+                    className={`absolute flex items-center justify-center border-2 border-dashed
+                      ${ selectedLayer === layer.id ? "border-primary" : "border-transparent" }
+                    `}
+                    style={{
+                      left: `${layer.x}px`,
+                      top: `${layer.y}px`,
+                      width: `${layer.width}px`,
+                      height: `${layer.height}px`,
+                      transform: `rotate(${layer.rotation}deg)`,
+                      zIndex: index + 1
+                    }}
+                    onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
+                  >
+                      <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'}`}>
+                          <div className="text-center text-muted-foreground relative top-1/2 -translate-y-1/2">
+                              <Camera className="mx-auto" />
+                              <span className="text-sm font-semibold">Photo {index + 1}</span>
+                          </div>
+                      </div>
+                    
+                    {selectedLayer === layer.id && (
+                       <>
+                          {resizeHandlePositions.map(direction => (
+                              <div
+                                  key={direction}
+                                  onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
+                                  className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
+                                  style={{
+                                      top: direction.includes('top') ? '-6px' : 'auto',
+                                      bottom: direction.includes('bottom') ? '-6px' : 'auto',
+                                      left: direction.includes('left') ? '-6px' : 'auto',
+                                      right: direction.includes('right') ? '-6px' : 'auto',
+                                      cursor: getCursorForDirection(direction),
+                                  }}
+                              />
+                          ))}
+                      </>
+                    )}
+                  </div>
+                )
               ))}
             </div>
           </div>
