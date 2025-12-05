@@ -214,6 +214,7 @@ function SnapStripStudio() {
 
   const handleResizeHandleMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string, direction: ResizeDirection) => {
     e.stopPropagation();
+    setSelectedLayer(layerId);
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     setResizingState({
