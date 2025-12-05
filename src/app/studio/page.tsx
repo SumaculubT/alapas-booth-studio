@@ -41,7 +41,18 @@ interface Layer {
   height: number;
   rotation: number;
   url?: string;
+  bgColor?: string;
 }
+
+const photoBoxColors = [
+  "bg-blue-500/30",
+  "bg-green-500/30",
+  "bg-yellow-500/30",
+  "bg-red-500/30",
+  "bg-purple-500/30",
+  "bg-pink-500/30",
+];
+
 
 function SnapStripStudio() {
   const router = useRouter();
@@ -126,15 +137,19 @@ function SnapStripStudio() {
   };
 
   const addCameraLayer = () => {
+    const cameraLayers = layers.filter((l) => l.type === "camera");
+    const colorIndex = cameraLayers.length % photoBoxColors.length;
+
     const newLayer: Layer = {
       id: `camera-${Date.now()}`,
       type: "camera",
-      name: `Photo ${layers.filter((l) => l.type === "camera").length + 1}`,
+      name: `Photo ${cameraLayers.length + 1}`,
       x: 10,
       y: 10,
       width: 150,
       height: 150,
       rotation: 0,
+      bgColor: photoBoxColors[colorIndex],
     };
     setLayers([...layers, newLayer]);
     setSelectedLayer(newLayer.id);
@@ -234,11 +249,11 @@ function SnapStripStudio() {
               {layers.map((layer, index) => (
                 <div
                   key={layer.id}
-                  className={`absolute flex items-center justify-center border-2 border-dashed cursor-move bg-muted/30 ${
+                  className={`absolute flex items-center justify-center border-2 border-dashed cursor-move ${
                     selectedLayer === layer.id
                       ? "border-primary"
                       : "border-muted-foreground"
-                  }`}
+                  } ${layer.bgColor || 'bg-muted/30'}`}
                   style={{
                     left: `${layer.x}px`,
                     top: `${layer.y}px`,
@@ -298,7 +313,7 @@ function SnapStripStudio() {
                             <Label>Size (W, H)</Label>
                             <div className="grid grid-cols-2 gap-2">
                             <Input type="number" value={selectedLayerData.width} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
-                            <Input type="number" value={selectedLayerData.height} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
+                            <Input type="number" value={Math.round(selectedLayerData.height)} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -325,5 +340,3 @@ export default function StudioPage() {
     </Suspense>
   );
 }
-
-    
