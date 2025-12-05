@@ -57,6 +57,14 @@ function SnapStripStudio() {
   const [canvasSize, setCanvasSize] = useState({ width: 500, height: 750 });
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
 
+  const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
+    setLayers((prevLayers) =>
+      prevLayers.map((layer) =>
+        layer.id === id ? { ...layer, ...newProps } : layer
+      )
+    );
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
       if (canvasWrapperRef.current) {
@@ -72,14 +80,6 @@ function SnapStripStudio() {
     handleResize();
     return () => window.removeEventListener("resize", handleResize);
   }, [isLandscape]);
-
-  const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
-    setLayers((prevLayers) =>
-      prevLayers.map((layer) =>
-        layer.id === id ? { ...layer, ...newProps } : layer
-      )
-    );
-  }, []);
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!draggingLayer || !canvasRef.current) return;
@@ -111,13 +111,13 @@ function SnapStripStudio() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingLayer, updateLayer]);
+  }, [draggingLayer]);
 
 
   const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = a new FileReader();
+      const reader = new FileReader();
       reader.onloadend = () => {
         setTemplateUrl(reader.result as string);
       };
@@ -132,8 +132,8 @@ function SnapStripStudio() {
       name: `Photo ${layers.filter((l) => l.type === "camera").length + 1}`,
       x: 10,
       y: 10,
-      width: 100,
-      height: 100,
+      width: 150,
+      height: 150,
       rotation: 0,
     };
     setLayers([...layers, newLayer]);
@@ -231,10 +231,10 @@ function SnapStripStudio() {
                   className="pointer-events-none"
                 />
               )}
-              {layers.map((layer) => (
+              {layers.map((layer, index) => (
                 <div
                   key={layer.id}
-                  className={`absolute flex items-center justify-center border-2 border-dashed cursor-move ${
+                  className={`absolute flex items-center justify-center border-2 border-dashed cursor-move bg-muted/30 ${
                     selectedLayer === layer.id
                       ? "border-primary"
                       : "border-muted-foreground"
@@ -248,7 +248,10 @@ function SnapStripStudio() {
                   }}
                   onMouseDown={(e) => handleLayerMouseDown(e, layer)}
                 >
-                  <Camera className="text-muted-foreground" />
+                  <div className="text-center text-muted-foreground">
+                    <Camera className="mx-auto" />
+                    <span className="text-sm font-semibold">Photo {index + 1}</span>
+                  </div>
                 </div>
               ))}
             </div>
