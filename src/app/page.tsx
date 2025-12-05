@@ -19,7 +19,7 @@ export default function SetupPage() {
       <div className="w-full max-w-4xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold font-headline bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            Welcome to SnapStrip Studio
+            Welcome to Alpas Studio
           </h1>
           <p className="text-muted-foreground mt-2">
             Choose your event setup to get started
@@ -81,7 +81,7 @@ export default function SetupPage() {
         </div>
 
         <footer className="text-center mt-8 text-sm text-muted-foreground">
-          <p>Powered by Next.js and Firebase</p>
+          <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
         </footer>
       </div>
     </main>

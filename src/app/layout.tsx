@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Suspense } from 'react';
 
 export const metadata: Metadata = {
-  title: 'SnapStrip Studio',
+  title: 'Alpas Studio',
   description: 'Create and capture custom photo strips.',
 };
 

@@ -114,7 +114,7 @@ function PhotoBoothSession() {
                   eventSize={eventSize}
                 />
                  <footer className="text-center mt-8 text-sm text-muted-foreground">
-                  <p>Powered by Next.js and Firebase</p>
+                  <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
                 </footer>
               </div>
             </main>
