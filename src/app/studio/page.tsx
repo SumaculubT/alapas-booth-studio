@@ -32,6 +32,8 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
 
@@ -45,6 +47,7 @@ interface Layer {
   height: number;
   rotation: number;
   isVisible: boolean;
+  isLocked: boolean;
   url?: string;
   bgColor?: string;
 }
@@ -180,6 +183,7 @@ function SnapStripStudio() {
           height: canvasSize.height,
           rotation: 0,
           isVisible: true,
+          isLocked: false,
           url: reader.result as string,
         };
         // Add template as the first layer (bottom of the stack)
@@ -204,6 +208,7 @@ function SnapStripStudio() {
       height: 150,
       rotation: 0,
       isVisible: true,
+      isLocked: false,
       bgColor: photoBoxColors[colorIndex],
     };
     setLayers([...layers, newLayer]);
@@ -224,25 +229,40 @@ function SnapStripStudio() {
       updateLayer(id, { isVisible: !layer.isVisible });
     }
   }
+  
+  const toggleLayerLock = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const layer = layers.find(l => l.id === id);
+    if (layer) {
+      const newLockState = !layer.isLocked;
+      updateLayer(id, { isLocked: newLockState });
+      if (newLockState && selectedLayer === id) {
+        setSelectedLayer(null);
+      }
+    }
+  };
 
   const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string) => {
     e.stopPropagation();
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer || layer.isLocked) return;
+
     setSelectedLayer(layerId);
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     const initialX = e.clientX - canvasRect.left;
     const initialY = e.clientY - canvasRect.top;
 
-    const layer = layers.find(l => l.id === layerId);
-    if (layer) {
-      const offsetX = initialX - layer.x;
-      const offsetY = initialY - layer.y;
-      setDraggingLayer({ id: layerId, initialX: offsetX, initialY: offsetY });
-    }
+    const offsetX = initialX - layer.x;
+    const offsetY = initialY - layer.y;
+    setDraggingLayer({ id: layerId, initialX: offsetX, initialY: offsetY });
   };
 
   const handleResizeHandleMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string, direction: ResizeDirection) => {
     e.stopPropagation();
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer || layer.isLocked) return;
+    
     setSelectedLayer(layerId);
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -278,6 +298,11 @@ function SnapStripStudio() {
   const resizeHandlePositions: ResizeDirection[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 
   const handleLayerDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    const layer = layers.find(l => l.id === id);
+    if (layer && layer.isLocked) {
+      e.preventDefault();
+      return;
+    }
     setDraggedLayerId(id);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -332,25 +357,31 @@ function SnapStripStudio() {
               {[...layers].reverse().map((layer) => (
                 <div
                   key={layer.id}
-                  draggable
+                  draggable={!layer.isLocked}
                   onDragStart={(e) => handleLayerDragStart(e, layer.id)}
                   onDragOver={handleLayerDragOver}
                   onDrop={(e) => handleLayerDrop(e, layer.id)}
                   onDragEnd={handleLayerDragEnd}
-                  className={`cursor-grab ${draggedLayerId === layer.id ? 'opacity-50' : ''}`}
+                  className={`relative ${layer.isLocked ? 'cursor-not-allowed' : 'cursor-grab'} ${draggedLayerId === layer.id ? 'opacity-50' : ''}`}
                 >
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       isActive={layer.id === selectedLayer}
-                      onClick={() => setSelectedLayer(layer.id)}
+                      onClick={() => !layer.isLocked && setSelectedLayer(layer.id)}
                       className={!layer.isVisible ? 'text-muted-foreground' : ''}
+                      disabled={layer.isLocked}
                     >
                       {layer.type === 'camera' ? <Camera size={16} /> : <ImageIcon size={16} />}
                       {layer.name}
                     </SidebarMenuButton>
-                     <Button variant="ghost" size="icon" className="absolute right-1 top-1 h-6 w-6" onClick={(e) => toggleLayerVisibility(e, layer.id)}>
-                        {layer.isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-                     </Button>
+                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => toggleLayerVisibility(e, layer.id)}>
+                            {layer.isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => toggleLayerLock(e, layer.id)}>
+                            {layer.isLocked ? <Lock size={15} /> : <Unlock size={15} />}
+                        </Button>
+                     </div>
                   </SidebarMenuItem>
                 </div>
               ))}
@@ -402,13 +433,14 @@ function SnapStripStudio() {
                     height: `${layer.height}px`,
                     transform: `rotate(${layer.rotation}deg)`,
                     zIndex: isSelected ? layers.length + 1 : index,
+                    cursor: layer.isLocked ? 'not-allowed' : 'move',
                 };
                 
                 const boxContent = (
                     <div
                         key={layer.id}
                         onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
-                        className={`absolute ${ isSelected ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }`}
+                        className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "border-2 border-transparent" }`}
                         style={commonStyle}
                     >
                         {layer.type === 'template' && layer.url && (
@@ -422,7 +454,7 @@ function SnapStripStudio() {
                         )}
 
                         {layer.type === 'camera' && (
-                            <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'} flex items-center justify-center`}>
+                            <div className={`w-full h-full ${layer.bgColor || 'bg-muted/30'} flex items-center justify-center`}>
                                 <div className="text-center text-muted-foreground">
                                     <Camera className="mx-auto" />
                                     <span className="text-sm font-semibold">{layer.name}</span>
@@ -430,7 +462,7 @@ function SnapStripStudio() {
                             </div>
                         )}
 
-                        {isSelected && layer.type !== 'template' && (
+                        {isSelected && !layer.isLocked && layer.type !== 'template' && (
                         <>
                             {resizeHandlePositions.map(direction => (
                                 <div
@@ -449,16 +481,20 @@ function SnapStripStudio() {
                             ))}
                         </>
                         )}
+                        {layer.isLocked && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <Lock className="text-white/70" />
+                          </div>
+                        )}
                     </div>
                 );
 
                 if (layer.type === 'template') {
-                    // Templates have pointer-events none to allow clicking through
                     return (
                          <div
                             key={layer.id}
                             style={commonStyle}
-                            className={`absolute ${ isSelected ? "border-2 border-dashed border-primary" : "" }`}
+                            className={`absolute ${ isSelected && !layer.isLocked ? "border-2 border-dashed border-primary" : "" }`}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
                                 handleLayerMouseDown(e, layer.id)
@@ -471,6 +507,11 @@ function SnapStripStudio() {
                                 style={{objectFit: "contain"}}
                                 className="pointer-events-none"
                             />
+                             {layer.isLocked && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <Lock className="text-white/70" />
+                              </div>
+                            )}
                         </div>
                     );
                 }
@@ -510,32 +551,34 @@ function SnapStripStudio() {
 
                 {selectedLayerData && (
                     <div className="space-y-4">
-                        <div className="space-y-2">
-                             <Label htmlFor="layer-name">Layer Name</Label>
-                             <Input id="layer-name" value={selectedLayerData.name} onChange={e => updateLayer(selectedLayerData.id, { name: e.target.value })} />
-                        </div>
-                        {selectedLayerData.type !== 'template' && (
-                            <>
-                                <div className="space-y-2">
-                                    <Label>Position (X, Y)</Label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                    <Input type="number" value={Math.round(selectedLayerData.x)} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
-                                    <Input type="number" value={Math.round(selectedLayerData.y)} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Size (W, H)</Label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                    <Input type="number" value={Math.round(selectedLayerData.width)} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
-                                    <Input type="number" value={Math.round(selectedLayerData.height)} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Rotation</Label>
-                                    <Slider value={[selectedLayerData.rotation]} max={360} step={1} onValueChange={([val]) => updateLayer(selectedLayerData.id, { rotation: val })} />
-                                </div>
-                            </>
-                        )}
+                        <fieldset disabled={selectedLayerData.isLocked} className="space-y-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="layer-name">Layer Name</Label>
+                              <Input id="layer-name" value={selectedLayerData.name} onChange={e => updateLayer(selectedLayerData.id, { name: e.target.value })} />
+                          </div>
+                          {selectedLayerData.type !== 'template' && (
+                              <>
+                                  <div className="space-y-2">
+                                      <Label>Position (X, Y)</Label>
+                                      <div className="grid grid-cols-2 gap-2">
+                                      <Input type="number" value={Math.round(selectedLayerData.x)} onChange={e => updateLayer(selectedLayerData.id, { x: parseInt(e.target.value) })} />
+                                      <Input type="number" value={Math.round(selectedLayerData.y)} onChange={e => updateLayer(selectedLayerData.id, { y: parseInt(e.target.value) })} />
+                                      </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                      <Label>Size (W, H)</Label>
+                                      <div className="grid grid-cols-2 gap-2">
+                                      <Input type="number" value={Math.round(selectedLayerData.width)} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
+                                      <Input type="number" value={Math.round(selectedLayerData.height)} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
+                                      </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                      <Label>Rotation</Label>
+                                      <Slider value={[selectedLayerData.rotation]} max={360} step={1} onValueChange={([val]) => updateLayer(selectedLayerData.id, { rotation: val })} />
+                                  </div>
+                              </>
+                          )}
+                        </fieldset>
                         <Button variant="destructive" onClick={() => removeLayer(selectedLayerData.id)} className="w-full">
                             <Trash2 className="mr-2"/>
                             Delete Layer
