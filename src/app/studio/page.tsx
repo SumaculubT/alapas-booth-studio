@@ -190,7 +190,7 @@ function SnapStripStudio() {
     const handleWheel = (e: WheelEvent) => {
       if (e.altKey) {
         e.preventDefault();
-        const zoomSpeed = 0.05;
+        const zoomSpeed = 0.005;
         setZoom(prevZoom => {
           const newZoom = prevZoom - e.deltaY * zoomSpeed;
           return Math.max(0.1, Math.min(newZoom, 2)); // Clamp zoom between 0.1 and 2
@@ -647,6 +647,8 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
 
     
 
