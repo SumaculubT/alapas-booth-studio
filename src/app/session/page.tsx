@@ -1,31 +1,51 @@
 
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import TemplateUploader from '@/components/app/TemplateUploader';
 import PhotoCapture from '@/components/app/PhotoCapture';
 import PhotoStripPreview from '@/components/app/PhotoStripPreview';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-type SessionStep = 'template' | 'capture' | 'preview';
+type Layer = {
+  id: string;
+  type: 'image' | 'camera' | 'template';
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  isVisible: boolean;
+  isLocked: boolean;
+  url?: string;
+  bgColor?: string;
+};
+
+type SessionStep = 'capture' | 'preview';
 
 function PhotoBoothSession() {
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<SessionStep>('template');
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [step, setStep] = useState<SessionStep>('capture');
+  const [templateLayout, setTemplateLayout] = useState<Layer[] | null>(null);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   
   const eventSize = searchParams.get('size') || '2x6';
   const photoCount = Number(searchParams.get('photoCount')) || 4;
   const countdown = Number(searchParams.get('countdown')) || 5;
 
-  const handleTemplateSelect = (templateUrl: string) => {
-    setSelectedTemplate(templateUrl);
+  useEffect(() => {
+    // Load the template from session storage
+    const savedTemplate = sessionStorage.getItem('snapstrip-template');
+    if (savedTemplate) {
+      setTemplateLayout(JSON.parse(savedTemplate));
+    }
+    // Directly go to capture step, skipping template selection
     setStep('capture');
-  };
+  }, []);
+
 
   const handleCaptureComplete = (photos: string[]) => {
     setCapturedPhotos(photos);
@@ -33,39 +53,32 @@ function PhotoBoothSession() {
   };
 
   const handleRestart = () => {
-    setSelectedTemplate(null);
     setCapturedPhotos([]);
-    setStep('template');
+    setStep('capture');
   };
 
   const renderStep = () => {
     switch (step) {
-      case 'template':
-        return (
-          <TemplateUploader
-            onTemplateSelect={handleTemplateSelect}
-            eventSize={eventSize}
-          />
-        );
       case 'capture':
         return (
           <PhotoCapture
             onCaptureComplete={handleCaptureComplete}
             photoCount={photoCount}
+            countdown={countdown}
           />
         );
       case 'preview':
-        if (selectedTemplate) {
+        if (templateLayout) {
           return (
             <PhotoStripPreview
-              templateUrl={selectedTemplate}
+              templateLayout={templateLayout}
               photos={capturedPhotos}
               onRestart={handleRestart}
               eventSize={eventSize}
             />
           );
         }
-        return null; // Or some fallback
+        return <div>Loading template...</div>;
       default:
         return null;
     }

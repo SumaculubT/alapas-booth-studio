@@ -88,7 +88,7 @@ function SnapStripStudio() {
     return { width: 400, height: 1200 };
   };
 
-  const [canvasSize] = useState(getInitialCanvasSize());
+  const [canvasSize, setCanvasSize] = useState(getInitialCanvasSize());
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
   const [resizingState, setResizingState] = useState<{ layerId: string, direction: ResizeDirection, initialX: number, initialY: number } | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -353,6 +353,9 @@ function SnapStripStudio() {
   const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
 
   const handleStartSession = (settings: { countdown: number; filter: string }) => {
+    // Save template to session storage
+    sessionStorage.setItem('snapstrip-template', JSON.stringify(layers));
+
     const queryParams = new URLSearchParams({
         size: eventSize,
         photoCount: String(cameraLayersCount),

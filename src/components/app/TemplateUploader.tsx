@@ -25,7 +25,7 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === "image/png") {
+    if (file && (file.type === "image/png" || file.type === "image/jpeg")) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
@@ -36,14 +36,14 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
       toast({
           variant: "destructive",
           title: "Invalid File Type",
-          description: "Please upload a valid PNG file.",
+          description: "Please upload a valid PNG or JPEG file.",
       });
     }
   };
 
   const defaultTemplates = eventSize === "4x6" ? defaultTemplates4x6 : defaultTemplates2x6;
   const aspectRatio = eventSize === "4x6" ? "aspect-video" : "aspect-[2/6]";
-  const uploadHint = eventSize === "4x6" ? "PNG file (e.g. 1800x1200px)" : "PNG file (e.g. 600x1800px)";
+  const uploadHint = eventSize === "4x6" ? "PNG/JPG file (e.g. 1800x1200px)" : "PNG/JPG file (e.g. 600x1800px)";
 
   return (
     <div className="space-y-6">
@@ -69,7 +69,7 @@ export default function TemplateUploader({ onTemplateSelect, eventSize }: Templa
               </p>
               <p className="text-xs text-muted-foreground">{uploadHint}</p>
             </div>
-            <Input id="template-upload" type="file" className="hidden" accept="image/png" onChange={handleFileChange} />
+            <Input id="template-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handleFileChange} />
           </Label>
         </CardContent>
       </Card>

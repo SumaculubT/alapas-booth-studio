@@ -12,9 +12,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 interface PhotoCaptureProps {
   onCaptureComplete: (photos: string[]) => void;
   photoCount: number;
+  countdown: number;
 }
 
-export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCaptureProps) {
+export default function PhotoCapture({ onCaptureComplete, photoCount, countdown: initialCountdown }: PhotoCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
@@ -67,7 +68,7 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
   const startCaptureSequence = () => {
     if (photos.length >= photoCount) return;
 
-    let count = 3;
+    let count = initialCountdown;
     setCountdown(count);
     const interval = setInterval(() => {
       count -= 1;
@@ -81,6 +82,15 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
   };
 
   useEffect(() => {
+    if (photos.length > 0 && photos.length < photoCount) {
+        const timer = setTimeout(() => {
+            startCaptureSequence();
+        }, 2000); // 2 second delay before next countdown
+        return () => clearTimeout(timer);
+    }
+  }, [photos, photoCount]);
+
+  useEffect(() => {
     if (photos.length === photoCount) {
       setTimeout(() => onCaptureComplete(photos), 1000);
     }
@@ -90,9 +100,9 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
 
   return (
     <div className="space-y-4 text-center">
-      <h2 className="text-2xl font-semibold">2. Strike a Pose!</h2>
+      <h2 className="text-2xl font-semibold">Strike a Pose!</h2>
       <p className="text-muted-foreground">
-        Capture {photoCount} photos. We'll count you down.
+        Get ready to capture {photoCount} photos.
       </p>
 
       <div className="relative w-full aspect-[4/3] bg-muted rounded-lg overflow-hidden flex items-center justify-center">
@@ -117,7 +127,7 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
 
       <div className="space-y-2">
         <Progress value={progress} />
-        <div className="grid grid-cols-4 gap-2">
+        <div className={`grid grid-cols-${photoCount > 4 ? 4 : photoCount} gap-2`}>
             {Array.from({ length: photoCount }).map((_, i) => (
                 <div key={i} className="aspect-square bg-muted rounded-md flex items-center justify-center overflow-hidden">
                     {photos[i] ? (
@@ -131,9 +141,9 @@ export default function PhotoCapture({ onCaptureComplete, photoCount }: PhotoCap
       </div>
 
       {photos.length < photoCount ? (
-        <Button onClick={startCaptureSequence} size="lg" className="w-full" disabled={countdown !== null || !hasCameraPermission}>
+        <Button onClick={startCaptureSequence} size="lg" className="w-full" disabled={countdown !== null || !hasCameraPermission || photos.length > 0}>
           <CameraIcon className="mr-2 h-5 w-5" />
-          Take Photo {photos.length + 1}
+          {photos.length === 0 ? "Start" : `Take Photo ${photos.length + 1}`}
         </Button>
       ) : (
         <div className="flex items-center justify-center text-primary pt-4">

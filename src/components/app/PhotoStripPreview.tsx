@@ -7,15 +7,30 @@ import { Button } from "@/components/ui/button";
 import { Download, Share2, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface Layer {
+  id: string;
+  type: 'image' | 'camera' | 'template';
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  isVisible: boolean;
+  isLocked: boolean;
+  url?: string;
+  bgColor?: string;
+}
+
 interface PhotoStripPreviewProps {
-  templateUrl: string;
+  templateLayout: Layer[];
   photos: string[];
   onRestart: () => void;
   eventSize: "2x6" | "4x6" | string;
 }
 
 export default function PhotoStripPreview({
-  templateUrl,
+  templateLayout,
   photos,
   onRestart,
   eventSize,
@@ -24,90 +39,106 @@ export default function PhotoStripPreview({
   const [isGenerating, setIsGenerating] = useState(true);
   const [finalImage, setFinalImage] = useState<string | null>(null);
 
+  const templateLayer = templateLayout.find(l => l.type === 'template');
+  const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
+
   useEffect(() => {
     const generateStrip = async () => {
-      if (!canvasRef.current || photos.length === 0) return;
+      if (!canvasRef.current || photos.length === 0 || !templateLayout) return;
 
       setIsGenerating(true);
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       
-      const templateImg = new window.Image();
-      templateImg.crossOrigin = 'anonymous';
-      templateImg.src = templateUrl;
-
-      await new Promise((resolve, reject) => {
-        templateImg.onload = resolve;
-        templateImg.onerror = reject;
-      });
-      
-      const templateAspectRatio = templateImg.naturalWidth / templateImg.naturalHeight;
       const isLandscape = eventSize === '4x6';
 
-      if (isLandscape) {
-        canvas.width = 1800; // 6 inches * 300 dpi
-        canvas.height = 1200; // 4 inches * 300 dpi
-      } else {
-        canvas.width = 600; // 2 inches * 300 dpi
-        canvas.height = 1800; // 6 inches * 300 dpi
-      }
+      // Define native resolution based on 300 DPI
+      const nativeWidth = isLandscape ? 1800 : 600; // 6" or 2"
+      const nativeHeight = isLandscape ? 1200 : 1800; // 4" or 6"
       
-      const photoImages = await Promise.all(
-          photos.map(p => {
-              const img = new window.Image();
-              img.src = p;
-              return new Promise<HTMLImageElement>(resolve => {
-                  img.onload = () => resolve(img);
-              });
-          })
-      );
-      
+      canvas.width = nativeWidth;
+      canvas.height = nativeHeight;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const studioCanvasWidth = isLandscape ? 600 : 400;
+      const studioCanvasHeight = isLandscape ? 400 : 1200;
+      const scaleX = canvas.width / studioCanvasWidth;
+      const scaleY = canvas.height / studioCanvasHeight;
 
-      // This is a placeholder logic for photo placement. 
-      // In a real app, this would come from the layer data from the studio
-       const photoPositions = [
-        { x: 50, y: 50, width: 500, height: 387 },
-        { x: 50, y: 487, width: 500, height: 387 },
-        { x: 50, y: 924, width: 500, height: 387 },
-        { x: 50, y: 1361, width: 500, height: 387 },
-      ];
+      // Load all images (template and photos)
+      const imagePromises: Promise<HTMLImageElement>[] = [];
+      
+      if (templateLayer && templateLayer.url) {
+        const templateImg = new window.Image();
+        templateImg.crossOrigin = 'anonymous';
+        templateImg.src = templateLayer.url;
+        imagePromises.push(new Promise((resolve, reject) => {
+          templateImg.onload = () => resolve(templateImg);
+          templateImg.onerror = reject;
+        }));
+      }
 
+      photos.forEach(p => {
+        const img = new window.Image();
+        img.src = p;
+        imagePromises.push(new Promise<HTMLImageElement>(resolve => {
+            img.onload = () => resolve(img);
+        }));
+      });
 
+      const loadedImages = await Promise.all(imagePromises);
+      const templateImage = (templateLayer && templateLayer.url) ? loadedImages.shift() : null;
+      const photoImages = loadedImages;
+
+      // Draw photos first
       photoImages.forEach((photo, index) => {
-          const pos = photoPositions[index % photoPositions.length];
-          if (pos) {
+          const layer = cameraLayers[index];
+          if (layer) {
+            const pos = {
+                x: layer.x * scaleX,
+                y: layer.y * scaleY,
+                width: layer.width * scaleX,
+                height: layer.height * scaleY,
+            };
+
             const photoAspectRatio = photo.naturalWidth / photo.naturalHeight;
             let sx, sy, sWidth, sHeight;
             
             const placeholderAspectRatio = pos.width / pos.height;
 
-            if (photoAspectRatio > placeholderAspectRatio) { // photo is wider than placeholder
+            if (photoAspectRatio > placeholderAspectRatio) { // photo is wider
                 sHeight = photo.naturalHeight;
                 sWidth = sHeight * placeholderAspectRatio;
                 sx = (photo.naturalWidth - sWidth) / 2;
                 sy = 0;
-            } else { // photo is taller than placeholder
+            } else { // photo is taller
                 sWidth = photo.naturalWidth;
                 sHeight = sWidth / placeholderAspectRatio;
                 sx = 0;
                 sy = (photo.naturalHeight - sHeight) / 2;
             }
             
-            ctx.drawImage(photo, sx, sy, sWidth, sHeight, pos.x, pos.y, pos.width, pos.height);
+            ctx.save();
+            ctx.translate(pos.x + pos.width / 2, pos.y + pos.height / 2);
+            ctx.rotate(layer.rotation * Math.PI / 180);
+            ctx.drawImage(photo, sx, sy, sWidth, sHeight, -pos.width/2, -pos.height/2, pos.width, pos.height);
+            ctx.restore();
           }
       });
 
-
-      ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+      // Draw template on top
+      if (templateImage) {
+        ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
+      }
 
       setFinalImage(canvas.toDataURL("image/png"));
       setIsGenerating(false);
     };
 
     generateStrip();
-  }, [templateUrl, photos, eventSize]);
+  }, [templateLayout, photos, eventSize, cameraLayers, templateLayer]);
 
   const handleDownload = () => {
     if (!finalImage) return;
@@ -131,7 +162,6 @@ export default function PhotoStripPreview({
           text: 'Check out my photo strip from SnapStrip Studio!',
         });
       } else {
-        // Fallback for browsers that can't share files but can share URLs
          await navigator.share({
           title: 'My SnapStrip!',
           text: 'Check out my photo strip from SnapStrip Studio! (Image attached)',
@@ -147,7 +177,7 @@ export default function PhotoStripPreview({
 
   return (
     <div className="space-y-4 text-center">
-      <h2 className="text-2xl font-semibold">3. Your Photo Strip!</h2>
+      <h2 className="text-2xl font-semibold">Your Photo Strip!</h2>
       <p className="text-muted-foreground">Save it, share it, or start over.</p>
 
       <div className={`relative w-full ${aspectRatio} bg-muted rounded-lg overflow-hidden`}>
