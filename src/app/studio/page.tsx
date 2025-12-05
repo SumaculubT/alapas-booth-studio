@@ -241,9 +241,11 @@ function SnapStripStudio() {
   const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string) => {
     e.stopPropagation();
     const layer = layers.find(l => l.id === layerId);
-    if (!layer || layer.isLocked) return;
-
+    if (!layer) return;
+    
     setSelectedLayer(layerId);
+
+    if (layer.isLocked) return;
 
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -483,11 +485,6 @@ function SnapStripStudio() {
                               </div>
                             )}
                         </>
-                        )}
-                        {layer.isLocked && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
-                            <Lock className="text-white/70" />
-                          </div>
                         )}
                     </div>
                 );
