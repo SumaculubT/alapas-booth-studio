@@ -166,7 +166,7 @@ function SnapStripStudio() {
         }
 
         if (newWidth > 10 && newHeight > 10) {
-            updateLayer(resizingState.layerId, { x: newX, y: newY, width: newWidth, height: newHeight });
+            updateLayer(resizingState.layerId, { x: newX, y: newY, width: newWidth, height: newWidth });
             setResizingState(prev => prev ? { ...prev, initialX: mouseX, initialY: mouseY } : null);
         }
     }
@@ -185,6 +185,30 @@ function SnapStripStudio() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.altKey) {
+        e.preventDefault();
+        const zoomSpeed = 0.05;
+        setZoom(prevZoom => {
+          const newZoom = prevZoom - e.deltaY * zoomSpeed;
+          return Math.max(0.1, Math.min(newZoom, 2)); // Clamp zoom between 0.1 and 2
+        });
+      }
+    };
+
+    const wrapper = canvasWrapperRef.current;
+    if (wrapper) {
+      wrapper.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (wrapper) {
+        wrapper.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, []);
 
 
   const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -470,6 +494,7 @@ function SnapStripStudio() {
                 width: canvasSize.width, 
                 height: canvasSize.height,
                 transform: `scale(${zoom})`,
+                transformOrigin: 'center center',
               }}
             >
               {layers.map((layer, index) => {
@@ -622,3 +647,5 @@ export default function StudioPage() {
     </Suspense>
   );
 }
+
+    
