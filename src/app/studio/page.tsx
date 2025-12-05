@@ -302,7 +302,7 @@ function SnapStripStudio() {
       isLocked: false,
       bgColor: photoBoxColors[colorIndex],
     };
-    setLayers([...layers, newLayer]);
+    setLayers([newLayer, ...layers]);
     setSelectedLayer(newLayer.id);
   };
   
@@ -717,3 +717,4 @@ export default function StudioPage() {
     
 
     
+
