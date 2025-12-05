@@ -44,6 +44,8 @@ interface Layer {
   bgColor?: string;
 }
 
+type ResizeDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top' | 'right' | 'bottom' | 'left';
+
 const photoBoxColors = [
   "bg-blue-500/30",
   "bg-green-500/30",
@@ -67,6 +69,8 @@ function SnapStripStudio() {
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 500, height: 750 });
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
+  const [resizingState, setResizingState] = useState<{ layerId: string, direction: ResizeDirection, initialX: number, initialY: number } | null>(null);
+
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -92,37 +96,67 @@ function SnapStripStudio() {
     return () => window.removeEventListener("resize", handleResize);
   }, [isLandscape]);
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!draggingLayer || !canvasRef.current) return;
-    
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
-    
-    // Calculate new position relative to the canvas
-    const newX = e.clientX - canvasRect.left - draggingLayer.initialX;
-    const newY = e.clientY - canvasRect.top - draggingLayer.initialY;
+    const mouseX = e.clientX - canvasRect.left;
+    const mouseY = e.clientY - canvasRect.top;
 
-    updateLayer(draggingLayer.id, { x: newX, y: newY });
-  };
-  
-  const handleMouseUp = () => {
-    setDraggingLayer(null);
-  };
-
-  useEffect(() => {
+    // Handle Dragging
     if (draggingLayer) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    } else {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      const newX = mouseX - draggingLayer.initialX;
+      const newY = mouseY - draggingLayer.initialY;
+      updateLayer(draggingLayer.id, { x: newX, y: newY });
     }
 
+    // Handle Resizing
+    if (resizingState) {
+        const layer = layers.find(l => l.id === resizingState.layerId);
+        if (!layer) return;
+
+        let newX = layer.x;
+        let newY = layer.y;
+        let newWidth = layer.width;
+        let newHeight = layer.height;
+
+        const dx = mouseX - resizingState.initialX;
+        const dy = mouseY - resizingState.initialY;
+
+        if (resizingState.direction.includes('right')) {
+            newWidth += dx;
+        }
+        if (resizingState.direction.includes('left')) {
+            newWidth -= dx;
+            newX += dx;
+        }
+        if (resizingState.direction.includes('bottom')) {
+            newHeight += dy;
+        }
+        if (resizingState.direction.includes('top')) {
+            newHeight -= dy;
+            newY += dy;
+        }
+
+        if (newWidth > 10 && newHeight > 10) {
+            updateLayer(resizingState.layerId, { x: newX, y: newY, width: newWidth, height: newHeight });
+            setResizingState(prev => prev ? { ...prev, initialX: mouseX, initialY: mouseY } : null);
+        }
+    }
+  }, [draggingLayer, resizingState, layers, updateLayer]);
+  
+  const handleMouseUp = useCallback(() => {
+    setDraggingLayer(null);
+    setResizingState(null);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingLayer]);
+  }, [handleMouseMove, handleMouseUp]);
 
 
   const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,15 +196,37 @@ function SnapStripStudio() {
     }
   }
 
-  const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layer: Layer) => {
-    setSelectedLayer(layer.id);
-    const initialX = e.clientX - e.currentTarget.getBoundingClientRect().left;
-    const initialY = e.clientY - e.currentTarget.getBoundingClientRect().top;
-    setDraggingLayer({ id: layer.id, initialX, initialY });
-    e.stopPropagation(); // Prevent canvas click
+  const handleLayerMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string) => {
+    setSelectedLayer(layerId);
+    if (!canvasRef.current) return;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const initialX = e.clientX - canvasRect.left;
+    const initialY = e.clientY - canvasRect.top;
+
+    const layer = layers.find(l => l.id === layerId);
+    if (layer) {
+      const offsetX = initialX - layer.x;
+      const offsetY = initialY - layer.y;
+      setDraggingLayer({ id: layerId, initialX: offsetX, initialY: offsetY });
+    }
+    e.stopPropagation();
+  };
+
+  const handleResizeHandleMouseDown = (e: React.MouseEvent<HTMLDivElement>, layerId: string, direction: ResizeDirection) => {
+    e.stopPropagation();
+    if (!canvasRef.current) return;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    setResizingState({
+        layerId,
+        direction,
+        initialX: e.clientX - canvasRect.left,
+        initialY: e.clientY - canvasRect.top,
+    });
   };
 
   const selectedLayerData = layers.find((l) => l.id === selectedLayer);
+  const resizeHandlePositions: ResizeDirection[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+
 
   return (
     <SidebarProvider>
@@ -249,11 +305,9 @@ function SnapStripStudio() {
               {layers.map((layer, index) => (
                 <div
                   key={layer.id}
-                  className={`absolute flex items-center justify-center border-2 border-dashed cursor-move ${
-                    selectedLayer === layer.id
-                      ? "border-primary"
-                      : "border-muted-foreground"
-                  } ${layer.bgColor || 'bg-muted/30'}`}
+                  className={`absolute flex items-center justify-center border-2 border-dashed
+                    ${ selectedLayer === layer.id ? "border-primary" : "border-transparent" }
+                  `}
                   style={{
                     left: `${layer.x}px`,
                     top: `${layer.y}px`,
@@ -261,12 +315,33 @@ function SnapStripStudio() {
                     height: `${layer.height}px`,
                     transform: `rotate(${layer.rotation}deg)`,
                   }}
-                  onMouseDown={(e) => handleLayerMouseDown(e, layer)}
+                  onMouseDown={(e) => handleLayerMouseDown(e, layer.id)}
                 >
-                  <div className="text-center text-muted-foreground">
-                    <Camera className="mx-auto" />
-                    <span className="text-sm font-semibold">Photo {index + 1}</span>
-                  </div>
+                    <div className={`w-full h-full cursor-move ${layer.bgColor || 'bg-muted/30'}`}>
+                        <div className="text-center text-muted-foreground relative top-1/2 -translate-y-1/2">
+                            <Camera className="mx-auto" />
+                            <span className="text-sm font-semibold">Photo {index + 1}</span>
+                        </div>
+                    </div>
+                  
+                  {selectedLayer === layer.id && (
+                     <>
+                        {resizeHandlePositions.map(direction => (
+                            <div
+                                key={direction}
+                                onMouseDown={(e) => handleResizeHandleMouseDown(e, layer.id, direction)}
+                                className="absolute w-3 h-3 bg-primary border-2 border-background rounded-full"
+                                style={{
+                                    top: direction.includes('top') ? '-6px' : 'auto',
+                                    bottom: direction.includes('bottom') ? '-6px' : 'auto',
+                                    left: direction.includes('left') ? '-6px' : 'auto',
+                                    right: direction.includes('right') ? '-6px' : 'auto',
+                                    cursor: `${direction.startsWith('top') || direction.startsWith('bottom') ? 'ns' : ''}-${direction.endsWith('left') || direction.endsWith('right') ? 'ew' : ''}-resize`
+                                }}
+                            />
+                        ))}
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -312,7 +387,7 @@ function SnapStripStudio() {
                         <div className="space-y-2">
                             <Label>Size (W, H)</Label>
                             <div className="grid grid-cols-2 gap-2">
-                            <Input type="number" value={selectedLayerData.width} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
+                            <Input type="number" value={Math.round(selectedLayerData.width)} onChange={e => updateLayer(selectedLayerData.id, { width: parseInt(e.target.value) })} />
                             <Input type="number" value={Math.round(selectedLayerData.height)} onChange={e => updateLayer(selectedLayerData.id, { height: parseInt(e.target.value) })} />
                             </div>
                         </div>
