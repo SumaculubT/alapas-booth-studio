@@ -37,7 +37,8 @@ const generateStrip = async (
     templateLayout: Layer[], 
     photos: string[], 
     eventSize: string,
-    targetWidth: number
+    targetWidth: number,
+    format: 'png' | 'jpeg' = 'png'
 ): Promise<string> => {
     
     const canvas = document.createElement('canvas');
@@ -45,21 +46,24 @@ const generateStrip = async (
     if (!ctx) return "";
 
     const isLandscape = eventSize === '4x6';
-    // The canvas size from the studio editor
     const templateLayerForSize = templateLayout.find(l => l.type === 'template');
     const studioCanvasWidth = templateLayerForSize?.width || (isLandscape ? 600 : 400);
     const studioCanvasHeight = templateLayerForSize?.height || (isLandscape ? 400 : 1200);
 
     const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
 
-    // Determine target dimensions while maintaining aspect ratio
     const aspectRatio = studioCanvasWidth / studioCanvasHeight;
     const targetHeight = targetWidth / aspectRatio;
 
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (format === 'jpeg') {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
       
     const scaleX = canvas.width / studioCanvasWidth;
     const scaleY = canvas.height / studioCanvasHeight;
@@ -128,6 +132,9 @@ const generateStrip = async (
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
     }
     
+    if (format === 'jpeg') {
+        return canvas.toDataURL("image/jpeg", 0.95); // 95% quality
+    }
     return canvas.toDataURL("image/png");
 }
 
@@ -148,7 +155,7 @@ export default function PhotoStripPreview({
     setIsGenerating(true);
     // Generate a smaller preview quickly for display
     const previewWidth = eventSize === '4x6' ? 800 : 400;
-    generateStrip(templateLayout, photos, eventSize, previewWidth)
+    generateStrip(templateLayout, photos, eventSize, previewWidth, 'png')
         .then(imageUrl => {
             setFinalImage(imageUrl);
             setIsGenerating(false);
@@ -161,10 +168,10 @@ export default function PhotoStripPreview({
     const isLandscape = eventSize === '4x6';
     const nativeWidth = isLandscape ? 6 * DPI : 2 * DPI; // 6" or 2"
     
-    const highResImage = await generateStrip(templateLayout, photos, eventSize, nativeWidth);
+    const highResImage = await generateStrip(templateLayout, photos, eventSize, nativeWidth, 'jpeg');
 
     const link = document.createElement("a");
-    link.download = "snapstrip.png";
+    link.download = "snapstrip.jpeg";
     link.href = highResImage;
     link.click();
     setIsGenerating(false);
@@ -174,11 +181,9 @@ export default function PhotoStripPreview({
       if (!finalImage) return;
       setIsGenerating(true);
   
-      // For a 4x6 print at 300 DPI, the dimensions are 1800x1200 pixels.
       const printWidth = 1800; 
       const printHeight = 1200;
   
-      // We need to place our photostrip onto a 4x6 canvas.
       const printCanvas = document.createElement('canvas');
       printCanvas.width = printWidth;
       printCanvas.height = printHeight;
@@ -189,7 +194,6 @@ export default function PhotoStripPreview({
         return;
       }
   
-      // Fill the background with white.
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, printWidth, printHeight);
   
@@ -198,7 +202,6 @@ export default function PhotoStripPreview({
       
       await new Promise(resolve => { stripImage.onload = resolve; });
   
-      // Center the photostrip on the 4x6 canvas
       const stripAspectRatio = stripImage.width / stripImage.height;
       let drawWidth, drawHeight, dx, dy;
   
