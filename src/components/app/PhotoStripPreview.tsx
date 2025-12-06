@@ -224,16 +224,16 @@ export default function PhotoStripPreview({
         <p className="text-muted-foreground">Save it, share it, or start over.</p>
       </div>
 
-      <div className="relative w-full max-w-md h-[50vh] mx-auto" >
-          {isGenerating && <Skeleton className="w-full h-full" />}
-          {finalImage && (
-            <Image
-                src={finalImage}
-                alt="Final photo strip"
-                fill
-                className="object-contain"
-            />
-          )}
+      <div className="relative w-full max-w-lg mx-auto" style={{ aspectRatio: `${studioCanvasWidth} / ${studioCanvasHeight}` }}>
+        {isGenerating && <Skeleton className="w-full h-full" />}
+        {finalImage && (
+          <Image
+            src={finalImage}
+            alt="Final"
+            fill
+            className="object-contain"
+          />
+        )}
       </div>
 
       <div className="w-full max-w-md mx-auto flex flex-wrap justify-center gap-2">
