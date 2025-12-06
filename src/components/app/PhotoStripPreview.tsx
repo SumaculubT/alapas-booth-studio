@@ -224,7 +224,7 @@ export default function PhotoStripPreview({
         <p className="text-muted-foreground">Save it, share it, or start over.</p>
       </div>
 
-      <div className={`relative w-full h-[75vh] mx-auto`} >
+      <div className="relative w-full max-w-md h-[50vh] mx-auto" >
           {isGenerating && <Skeleton className="w-full h-full" />}
           {finalImage && (
             <Image
