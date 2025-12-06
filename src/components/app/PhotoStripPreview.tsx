@@ -147,7 +147,7 @@ export default function PhotoStripPreview({
 
     setIsGenerating(true);
     // Generate a smaller preview quickly for display
-    const previewWidth = eventSize === '4x6' ? 800 : 600;
+    const previewWidth = eventSize === '4x6' ? 800 : 400;
     generateStrip(templateLayout, photos, eventSize, previewWidth)
         .then(imageUrl => {
             setFinalImage(imageUrl);
@@ -214,25 +214,25 @@ export default function PhotoStripPreview({
   const templateLayerForSize = templateLayout.find(l => l.type === 'template');
   const studioCanvasWidth = templateLayerForSize?.width || (eventSize === '4x6' ? 600 : 400);
   const studioCanvasHeight = templateLayerForSize?.height || (eventSize === '4x6' ? 400 : 1200);
-  const aspectRatio = `aspect-[${studioCanvasWidth}/${studioCanvasHeight}]`;
+  const aspectRatio = studioCanvasWidth / studioCanvasHeight;
 
 
   return (
     <>
-      <div className="text-center">
+      <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">Thank You!</h1>
         <p className="text-muted-foreground">Save it, share it, or start over.</p>
       </div>
 
-      <div className={`relative w-full max-w-sm mx-auto ${aspectRatio} bg-muted rounded-lg overflow-hidden shadow-lg`}>
+      <div className={`relative w-full max-w-sm mx-auto bg-muted rounded-lg overflow-hidden shadow-lg`} style={{aspectRatio: aspectRatio}}>
           {isGenerating && <Skeleton className="w-full h-full" />}
           {finalImage && (
-          <Image
-              src={finalImage}
-              alt="Final photo strip"
-              fill
-              className="object-contain"
-          />
+            <Image
+                src={finalImage}
+                alt="Final photo strip"
+                fill
+                className="object-contain"
+            />
           )}
       </div>
 

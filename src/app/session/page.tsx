@@ -104,15 +104,17 @@ function PhotoBoothSession() {
       case 'preview':
         if (templateLayout) {
           return (
-            <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8 space-y-4">
-              <PhotoStripPreview
-                templateLayout={templateLayout}
-                photos={capturedPhotos}
-                onRestart={handleRestart}
-                onExit={handleExit}
-                eventSize={eventSize}
-              />
-              <footer className="text-center text-sm text-muted-foreground pt-4">
+            <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
+                <div className="flex flex-col items-center justify-center w-full space-y-4">
+                    <PhotoStripPreview
+                        templateLayout={templateLayout}
+                        photos={capturedPhotos}
+                        onRestart={handleRestart}
+                        onExit={handleExit}
+                        eventSize={eventSize}
+                    />
+                </div>
+              <footer className="text-center text-sm text-muted-foreground pt-8">
                 <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
               </footer>
             </main>
