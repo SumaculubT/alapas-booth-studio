@@ -218,57 +218,59 @@ export default function PhotoStripPreview({
 
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-4 text-center w-full">
+    <>
+      <div className="text-center">
         <h1 className="text-3xl font-bold">Thank You!</h1>
         <p className="text-muted-foreground">Save it, share it, or start over.</p>
+      </div>
 
-        <div className={`relative w-full max-w-lg mx-auto ${aspectRatio} bg-muted rounded-lg overflow-hidden shadow-lg`}>
-            {isGenerating && <Skeleton className="w-full h-full" />}
-            {finalImage && (
-            <Image
-                src={finalImage}
-                alt="Final photo strip"
-                fill
-                className="object-contain"
-            />
-            )}
-        </div>
+      <div className={`relative w-full max-w-sm mx-auto ${aspectRatio} bg-muted rounded-lg overflow-hidden shadow-lg`}>
+          {isGenerating && <Skeleton className="w-full h-full" />}
+          {finalImage && (
+          <Image
+              src={finalImage}
+              alt="Final photo strip"
+              fill
+              className="object-contain"
+          />
+          )}
+      </div>
 
-        <div className="max-w-lg mx-auto grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <Button onClick={onRestart} variant="outline" className="w-full">
-            <RefreshCw className="mr-2 h-4 w-4" /> Start Over (Enter)
-            </Button>
-            <Button onClick={() => setIsFullscreen(true)} disabled={isGenerating} className="w-full">
-            <Expand className="mr-2 h-4 w-4" /> Fullscreen (Space)
-            </Button>
-            <Button onClick={handleDownload} disabled={isGenerating} className="w-full">
-            <Download className="mr-2 h-4 w-4" /> Download
-            </Button>
-            {typeof navigator !== 'undefined' && navigator.share && (
-            <Button onClick={handleShare} disabled={isGenerating} className="w-full">
-                <Share2 className="mr-2 h-4 w-4" /> Share
-            </Button>
-            )}
-            <Button onClick={onExit} variant="secondary" className="w-full sm:col-span-1">
-            <Home className="mr-2 h-4 w-4" /> Back to Home
-            </Button>
-        </div>
+      <div className="w-full max-w-md mx-auto flex flex-wrap justify-center gap-2">
+          <Button onClick={onRestart} variant="outline" className="flex-grow sm:flex-grow-0">
+          <RefreshCw className="mr-2 h-4 w-4" /> Start Over (Enter)
+          </Button>
+          <Button onClick={() => setIsFullscreen(true)} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
+          <Expand className="mr-2 h-4 w-4" /> Fullscreen (Space)
+          </Button>
+          <Button onClick={handleDownload} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
+          <Download className="mr-2 h-4 w-4" /> Download
+          </Button>
+          {typeof navigator !== 'undefined' && navigator.share && (
+          <Button onClick={handleShare} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
+              <Share2 className="mr-2 h-4 w-4" /> Share
+          </Button>
+          )}
+          <Button onClick={onExit} variant="secondary" className="flex-grow sm:flex-grow-0">
+          <Home className="mr-2 h-4 w-4" /> Back to Home
+          </Button>
+      </div>
 
-        <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-            <DialogContent className="max-w-7xl h-[90vh] bg-transparent border-none shadow-none p-0">
-            {finalImage && (
-                <Image
-                src={finalImage}
-                alt="Final photo strip fullscreen"
-                fill
-                className="object-contain"
-                />
-            )}
-            <Button onClick={() => setIsFullscreen(false)} variant="ghost" size="icon" className="absolute top-4 right-4 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white hover:text-white z-10">
-                <X size={32} />
-            </Button>
-            </DialogContent>
-        </Dialog>
-    </div>
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+          <DialogContent className="max-w-7xl h-[90vh] bg-transparent border-none shadow-none p-0">
+          {finalImage && (
+              <Image
+              src={finalImage}
+              alt="Final photo strip fullscreen"
+              fill
+              className="object-contain"
+              />
+          )}
+          <Button onClick={() => setIsFullscreen(false)} variant="ghost" size="icon" className="absolute top-4 right-4 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white hover:text-white z-10">
+              <X size={32} />
+          </Button>
+          </DialogContent>
+      </Dialog>
+    </>
   );
 }

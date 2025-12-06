@@ -104,19 +104,17 @@ function PhotoBoothSession() {
       case 'preview':
         if (templateLayout) {
           return (
-            <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8 pt-16">
-              <div className="w-full max-w-md mx-auto">
-                <PhotoStripPreview
-                  templateLayout={templateLayout}
-                  photos={capturedPhotos}
-                  onRestart={handleRestart}
-                  onExit={handleExit}
-                  eventSize={eventSize}
-                />
-                 <footer className="text-center mt-8 text-sm text-muted-foreground">
-                  <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
-                </footer>
-              </div>
+            <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8 space-y-4">
+              <PhotoStripPreview
+                templateLayout={templateLayout}
+                photos={capturedPhotos}
+                onRestart={handleRestart}
+                onExit={handleExit}
+                eventSize={eventSize}
+              />
+              <footer className="text-center text-sm text-muted-foreground pt-4">
+                <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
+              </footer>
             </main>
           );
         }
