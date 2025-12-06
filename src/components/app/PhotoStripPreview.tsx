@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, RefreshCw, X, Expand, Home } from "lucide-react";
+import { Download, Share2, RefreshCw, X, Expand, Home, Printer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -169,6 +169,80 @@ export default function PhotoStripPreview({
     link.click();
     setIsGenerating(false);
   };
+  
+    const handlePrint = async () => {
+      if (!finalImage) return;
+      setIsGenerating(true);
+  
+      // For a 4x6 print at 300 DPI, the dimensions are 1800x1200 pixels.
+      const printWidth = 1800; 
+      const printHeight = 1200;
+  
+      // We need to place our photostrip onto a 4x6 canvas.
+      const printCanvas = document.createElement('canvas');
+      printCanvas.width = printWidth;
+      printCanvas.height = printHeight;
+      const ctx = printCanvas.getContext('2d');
+  
+      if (!ctx) {
+        setIsGenerating(false);
+        return;
+      }
+  
+      // Fill the background with white.
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, printWidth, printHeight);
+  
+      const stripImage = new window.Image();
+      stripImage.src = finalImage;
+      
+      await new Promise(resolve => { stripImage.onload = resolve; });
+  
+      // Center the photostrip on the 4x6 canvas
+      const stripAspectRatio = stripImage.width / stripImage.height;
+      let drawWidth, drawHeight, dx, dy;
+  
+      if (stripAspectRatio > printWidth / printHeight) {
+        drawWidth = printWidth;
+        drawHeight = drawWidth / stripAspectRatio;
+      } else {
+        drawHeight = printHeight;
+        drawWidth = drawHeight * stripAspectRatio;
+      }
+      
+      dx = (printWidth - drawWidth) / 2;
+      dy = (printHeight - drawHeight) / 2;
+  
+      ctx.drawImage(stripImage, dx, dy, drawWidth, drawHeight);
+      
+      const printDataUrl = printCanvas.toDataURL('image/png');
+  
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Print Photo Strip</title>
+              <style>
+                @page { size: 6in 4in; margin: 0; }
+                body { margin: 0; }
+                img { width: 100%; height: 100%; object-fit: cover; }
+              </style>
+            </head>
+            <body>
+              <img src="${printDataUrl}" />
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 250);
+      }
+      setIsGenerating(false);
+    };
 
   const handleShare = async () => {
     if (!finalImage || !navigator.share) return;
@@ -243,6 +317,9 @@ export default function PhotoStripPreview({
           <Button onClick={() => setIsFullscreen(true)} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
           <Expand className="mr-2 h-4 w-4" /> Fullscreen (Space)
           </Button>
+           <Button onClick={handlePrint} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
+              <Printer className="mr-2 h-4 w-4" /> Print
+            </Button>
           <Button onClick={handleDownload} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
           <Download className="mr-2 h-4 w-4" /> Download
           </Button>
@@ -274,3 +351,5 @@ export default function PhotoStripPreview({
     </>
   );
 }
+
+    
