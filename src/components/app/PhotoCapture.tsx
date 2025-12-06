@@ -30,9 +30,23 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   
   const startSession = useCallback(() => {
     if(captureState === 'welcome') {
+      setPhotos([]);
       setCaptureState('capturing');
     }
   }, [captureState]);
+
+  const handleInterrupt = () => {
+    if (captureState === 'capturing') {
+      // Stop camera stream
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach((track) => track.stop());
+      }
+      setCaptureState('welcome');
+    } else {
+      onExit();
+    }
+  }
 
   useEffect(() => {
     if (captureState === 'welcome') {
@@ -149,7 +163,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   if (captureState === 'welcome') {
     return (
        <div className="fixed inset-0 bg-black cursor-pointer" onClick={(e) => { if (e.target === e.currentTarget) startSession();}}>
-          <Image src={welcomeImage} alt="Welcome to the photo booth" layout="fill" objectFit="cover" placeholder="blur" />
+          <Image src={welcomeImage} alt="Welcome to the photo booth" fill objectFit="cover" placeholder="blur" />
            <Button onClick={onExit} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10">
             <X size={32} />
           </Button>
@@ -164,7 +178,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
     <div className="fixed inset-0 bg-black text-white">
       <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
       
-      <Button onClick={onExit} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white">
+      <Button onClick={handleInterrupt} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10">
         <X size={32} />
       </Button>
 
@@ -238,3 +252,5 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
     </div>
   );
 }
+
+    
