@@ -224,7 +224,7 @@ export default function PhotoStripPreview({
         <p className="text-muted-foreground">Save it, share it, or start over.</p>
       </div>
 
-      <div className={`relative w-full max-w-md mx-auto bg-muted rounded-lg overflow-hidden shadow-lg`} style={{aspectRatio: aspectRatio}}>
+      <div className={`relative w-full h-[75vh] mx-auto`} >
           {isGenerating && <Skeleton className="w-full h-full" />}
           {finalImage && (
             <Image
