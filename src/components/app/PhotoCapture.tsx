@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Camera as CameraIcon, CheckCircle, X } from "lucide-react";
+import { Camera as CameraIcon, CheckCircle, X, RefreshCw, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import welcomeImage from "@/lib/welcome.webp";
@@ -16,13 +16,14 @@ interface PhotoCaptureProps {
   countdown: number;
 }
 
-type CaptureState = 'welcome' | 'capturing' | 'finished';
+type CaptureState = 'welcome' | 'capturing' | 'review' | 'finished';
 
 export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, countdown: initialCountdown }: PhotoCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isTakingPicture, setIsTakingPicture] = useState(false);
   const [captureState, setCaptureState] = useState<CaptureState>('welcome');
@@ -31,12 +32,13 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   const startSession = useCallback(() => {
     if(captureState === 'welcome') {
       setPhotos([]);
+      setCurrentPhoto(null);
       setCaptureState('capturing');
     }
   }, [captureState]);
 
   const handleInterrupt = () => {
-    if (captureState === 'capturing') {
+    if (captureState === 'capturing' || captureState === 'review') {
       // Stop camera stream
       if (videoRef.current && videoRef.current.srcObject) {
           const stream = videoRef.current.srcObject as MediaStream;
@@ -69,9 +71,15 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
 
 
   useEffect(() => {
-    if (captureState !== 'capturing') return;
+    if (captureState !== 'capturing' && captureState !== 'review') return;
 
     const getCameraPermission = async () => {
+      // Don't re-request if we are just reviewing
+      if(videoRef.current?.srcObject) {
+        setHasCameraPermission(true);
+        return;
+      };
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
@@ -92,10 +100,13 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
 
     getCameraPermission();
 
+    // Only cleanup when leaving the capture/review states
     return () => {
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach((track) => track.stop());
+        if (captureState !== 'capturing' && captureState !== 'review') {
+             if (videoRef.current && videoRef.current.srcObject) {
+                const stream = videoRef.current.srcObject as MediaStream;
+                stream.getTracks().forEach((track) => track.stop());
+            }
         }
     };
   }, [captureState, toast]);
@@ -112,7 +123,8 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
         context.scale(-1, 1);
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL("image/jpeg");
-        setPhotos((prev) => [...prev, dataUrl]);
+        setCurrentPhoto(dataUrl);
+        setCaptureState('review');
       }
     }
     setIsTakingPicture(false);
@@ -121,6 +133,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   const startCaptureSequence = useCallback(() => {
     if (photos.length >= photoCount || isTakingPicture) return;
 
+    setCaptureState('capturing');
     setIsTakingPicture(true);
     let count = initialCountdown;
     setCountdown(count);
@@ -136,29 +149,51 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
   }, [photos.length, photoCount, isTakingPicture, initialCountdown]);
   
   useEffect(() => {
-    if (captureState === 'capturing' && photos.length === 0) {
+    if (captureState === 'capturing' && !isTakingPicture) {
         const timer = setTimeout(() => {
             startCaptureSequence();
         }, 1000); // Initial delay
         return () => clearTimeout(timer);
     }
-  }, [captureState, photos.length, startCaptureSequence]);
+  }, [captureState, isTakingPicture, startCaptureSequence]);
 
-  useEffect(() => {
-    if (photos.length > 0 && photos.length < photoCount) {
-        const timer = setTimeout(() => {
-            startCaptureSequence();
-        }, 2000); // 2 second delay before next countdown
-        return () => clearTimeout(timer);
-    }
-  }, [photos, photoCount, startCaptureSequence]);
+  const handleRetake = useCallback(() => {
+    setCurrentPhoto(null);
+    startCaptureSequence();
+  }, [startCaptureSequence]);
 
-  useEffect(() => {
-    if (photos.length === photoCount && photoCount > 0) {
-      setCaptureState('finished');
-      setTimeout(() => onCaptureComplete(photos), 1000);
+  const handleConfirm = useCallback(() => {
+    if (currentPhoto) {
+      const newPhotos = [...photos, currentPhoto];
+      setPhotos(newPhotos);
+      setCurrentPhoto(null);
+      
+      if (newPhotos.length === photoCount) {
+        setCaptureState('finished');
+        setTimeout(() => onCaptureComplete(newPhotos), 1000);
+      } else {
+        startCaptureSequence();
+      }
     }
-  }, [photos, photoCount, onCaptureComplete]);
+  }, [currentPhoto, photos, photoCount, onCaptureComplete, startCaptureSequence]);
+  
+  useEffect(() => {
+    if (captureState !== 'review') return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        handleConfirm();
+      } else if (event.code === 'Space') {
+        event.preventDefault(); // Prevent space from scrolling or clicking buttons
+        handleRetake();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [captureState, handleConfirm, handleRetake]);
   
   if (captureState === 'welcome') {
     return (
@@ -176,13 +211,22 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
 
   return (
     <div className="fixed inset-0 bg-black text-white">
-      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline 
+        muted 
+        className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${captureState === 'review' ? 'opacity-0' : 'opacity-100'}`} 
+      />
+      {currentPhoto && captureState === 'review' && (
+         <Image src={currentPhoto} alt="Review photo" fill className="object-contain scale-x-[-1]"/>
+      )}
       
       <Button onClick={handleInterrupt} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10">
         <X size={32} />
       </Button>
 
-      {countdown !== null && countdown > 0 && (
+      {countdown !== null && countdown > 0 && captureState === 'capturing' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20">
               <div className="relative flex items-center justify-center w-64 h-64">
                    <svg className="absolute w-full h-full" viewBox="0 0 100 100">
@@ -213,6 +257,20 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
               </div>
           </div>
         )}
+      
+      {captureState === 'review' && (
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center space-x-4 z-20">
+            <Button onClick={handleRetake} size="lg" variant="outline" className="text-lg px-8 py-6">
+                <RefreshCw className="mr-2"/>
+                Retake (Space)
+            </Button>
+            <Button onClick={handleConfirm} size="lg" className="text-lg px-8 py-6">
+                <Check className="mr-2"/>
+                Continue (Enter)
+            </Button>
+        </div>
+      )}
+
 
       {!hasCameraPermission && captureState === 'capturing' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
