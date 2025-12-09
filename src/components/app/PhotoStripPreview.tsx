@@ -4,11 +4,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, RefreshCw, X, Expand, Home, Printer, Settings } from "lucide-react";
+import { Download, Share2, RefreshCw, X, Expand, Home, Printer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { loadPrintSettings, type PrintSettings } from "@/components/app/PrintSettingsDialog";
-import PrintSettingsDialog from "@/components/app/PrintSettingsDialog";
 
 interface Layer {
   id: string;
@@ -33,7 +31,12 @@ interface PhotoStripPreviewProps {
   eventSize: "2x6" | "4x6" | string;
 }
 
-const DPI = 300; // for high quality download
+const DPI = 600; // High quality download (600 DPI for professional prints)
+const DOWNLOAD_DPI = 600; // Even higher DPI for downloads
+
+// Standard 4x6 landscape dimensions
+const PRINTABLE_4X6_WIDTH = 4;
+const PRINTABLE_4X6_HEIGHT = 6;
 
 const generateStrip = async (
     templateLayout: Layer[], 
@@ -44,7 +47,13 @@ const generateStrip = async (
 ): Promise<string> => {
     
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext("2d");
+    // Request high-quality 2D context
+    const ctx = canvas.getContext("2d", {
+      willReadFrequently: false,
+      alpha: format === 'png', // PNG supports transparency, JPEG doesn't
+      colorSpace: 'srgb', // Standard RGB color space
+      desynchronized: false // Better quality, slightly slower
+    });
     if (!ctx) return "";
 
     // Enable high-quality image smoothing for better template rendering
@@ -53,8 +62,9 @@ const generateStrip = async (
 
     const isLandscape = eventSize === '4x6';
     const templateLayerForSize = templateLayout.find(l => l.type === 'template');
-    const studioCanvasWidth = templateLayerForSize?.width || (isLandscape ? 600 : 400);
-    const studioCanvasHeight = templateLayerForSize?.height || (isLandscape ? 400 : 1200);
+    // Use standard 4x6 landscape dimensions
+    const studioCanvasWidth = templateLayerForSize?.width || (isLandscape ? PRINTABLE_4X6_WIDTH * 100 : 400);
+    const studioCanvasHeight = templateLayerForSize?.height || (isLandscape ? PRINTABLE_4X6_HEIGHT * 100 : 1200);
 
     const cameraLayers = templateLayout.filter(l => l.type === 'camera' && l.isVisible).sort((a,b) => a.name.localeCompare(b.name));
 
@@ -140,8 +150,9 @@ const generateStrip = async (
     }
     
     if (format === 'jpeg') {
-        return canvas.toDataURL("image/jpeg", 0.95); // 95% quality
+        return canvas.toDataURL("image/jpeg", 1.0); // Maximum JPEG quality (100%)
     }
+    // PNG for lossless quality
     return canvas.toDataURL("image/png");
 }
 
@@ -155,9 +166,6 @@ export default function PhotoStripPreview({
   const [isGenerating, setIsGenerating] = useState(true);
   const [finalImage, setFinalImage] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPrintSettingsOpen, setIsPrintSettingsOpen] = useState(false);
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [printPreviewImage, setPrintPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (photos.length === 0 || !templateLayout) return;
@@ -176,419 +184,211 @@ export default function PhotoStripPreview({
   const handleDownload = async () => {
     setIsGenerating(true);
     
-    // Get the actual template image dimensions for full quality output
-    const templateLayer = templateLayout.find(l => l.type === 'template');
-    let nativeWidth: number;
+    // Try to use JSZip if available, otherwise download files individually
+    let useZip = false;
+    let JSZip: any = null;
     
-    if (templateLayer && templateLayer.url) {
-      // Load template image to get actual dimensions
-      const templateImg = new window.Image();
-      await new Promise((resolve, reject) => {
-        templateImg.onload = resolve;
-        templateImg.onerror = reject;
-        templateImg.src = templateLayer.url!;
-      });
-      // Use the actual template image width for full resolution output
-      nativeWidth = templateImg.naturalWidth;
-    } else {
-      // Fallback: use DPI calculation if no template
-      const isLandscape = eventSize === '4x6';
-      nativeWidth = isLandscape ? 6 * DPI : 2 * DPI; // 6" or 2"
+    try {
+      // Try to dynamically import JSZip
+      const jszipModule = await import('jszip');
+      JSZip = jszipModule.default || jszipModule;
+      if (JSZip) {
+        useZip = true;
+      }
+    } catch (importError) {
+      console.warn('JSZip not available, will download files individually:', importError);
+      useZip = false;
     }
     
-    const highResImage = await generateStrip(templateLayout, photos, eventSize, nativeWidth, 'jpeg');
-
-    const link = document.createElement("a");
-    link.download = "snapstrip.jpeg";
-    link.href = highResImage;
-    link.click();
-    setIsGenerating(false);
-  };
-  
-    const handlePrint = async () => {
-      if (!finalImage) return;
-      
-      // Show preview dialog first
-      setPrintPreviewImage(finalImage);
-      setShowPrintPreview(true);
-    };
-
-    const handleConfirmPrint = async () => {
-      if (!printPreviewImage) return;
-      setIsGenerating(true);
-      setShowPrintPreview(false);
-      
-      const printSettings = loadPrintSettings();
-      
-      // Try API printing first, fallback to browser print dialog
+    if (useZip && JSZip) {
       try {
-        const response = await fetch('/api/print', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            image: printPreviewImage,
-            printSettings: printSettings,
-            printerName: printSettings.printerName || 'Epson L3210',
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          // Successfully sent to printer via API
-          setIsGenerating(false);
-          setPrintPreviewImage(null);
-          alert(`Print job submitted successfully to ${result.printer || 'printer'}!`);
-          return;
-        } else if (result.setupInstructions) {
-          // Print service not configured, show setup instructions
-          console.log('Print service setup required:', result.setupInstructions);
-          setIsGenerating(false);
-          handleBrowserPrint();
-        } else {
-          setIsGenerating(false);
-          alert(`Print failed: ${result.error || result.message || 'Unknown error'}`);
-          handleBrowserPrint();
-        }
-      } catch (error: any) {
-        console.error('API print failed, falling back to browser print:', error);
-        setIsGenerating(false);
-        alert(`Print failed: ${error.message}. Falling back to browser print dialog.`);
-        handleBrowserPrint();
+        const zip = new JSZip();
+        
+        // Add raw captured photos at original quality
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        // Convert base64 data URL to blob
+        const response = await fetch(photo);
+        const blob = await response.blob();
+        // Extract the image format from the data URL or blob
+        const format = photo.includes('image/png') ? 'png' : 'jpeg';
+        zip.file(`photo_${i + 1}.${format}`, blob);
       }
-    };
-
-    const handleBrowserPrint = async () => {
-      if (!printPreviewImage) return;
-      setIsGenerating(true);
       
-      const printSettings = loadPrintSettings();
-      
-      // Calculate paper dimensions
-      const getPaperDimensions = () => {
-        switch (printSettings.paperSize) {
-          case '4x6':
-            return { width: 4, height: 6 };
-          case '5x7':
-            return { width: 5, height: 7 };
-          case '8x10':
-            return { width: 8, height: 10 };
-          case 'custom':
-            return { width: printSettings.customWidth, height: printSettings.customHeight };
-        }
-      };
-
-      const getMarginInches = () => {
-        switch (printSettings.margins) {
-          case 'none':
-            return 0;
-          case 'small':
-            return 0.1;
-          case 'medium':
-            return 0.25;
-          case 'large':
-            return 0.5;
-          case 'custom':
-            return printSettings.customMargin;
-        }
-      };
-
-      const paperDims = getPaperDimensions();
-      const marginInches = getMarginInches();
-      const printableWidth = paperDims.width - marginInches * 2;
-      const printableHeight = paperDims.height - marginInches * 2;
-      
-      // Calculate print dimensions in pixels based on DPI
-      let printWidth = printableWidth * printSettings.dpi;
-      let printHeight = printableHeight * printSettings.dpi;
-
-      // Apply orientation
-      if (printSettings.orientation === 'portrait') {
-        [printWidth, printHeight] = [printHeight, printWidth];
-      }
-  
-      const printCanvas = document.createElement('canvas');
-      printCanvas.width = printWidth;
-      printCanvas.height = printHeight;
-      const ctx = printCanvas.getContext('2d');
-  
-      if (!ctx) {
-        setIsGenerating(false);
-        return;
-      }
-
-      // Enable high-quality rendering
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-  
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, printWidth, printHeight);
-  
-      // Generate high-resolution image for printing
+      // Generate high-quality final templated photo
       const templateLayer = templateLayout.find(l => l.type === 'template');
-      let sourceImage: string;
+      let nativeWidth: number;
       
       if (templateLayer && templateLayer.url) {
-        // Generate at template resolution first
+        // Load template image to get actual dimensions
         const templateImg = new window.Image();
         await new Promise((resolve, reject) => {
           templateImg.onload = resolve;
           templateImg.onerror = reject;
           templateImg.src = templateLayer.url!;
         });
-        const sourceWidth = templateImg.naturalWidth;
-        sourceImage = await generateStrip(templateLayout, photos, eventSize, sourceWidth, 'png');
-      } else {
-        sourceImage = finalImage;
-      }
-
-      const stripImage = new window.Image();
-      stripImage.src = sourceImage;
-      
-      await new Promise(resolve => { stripImage.onload = resolve; });
-  
-      const stripAspectRatio = stripImage.width / stripImage.height;
-      const canvasAspectRatio = printWidth / printHeight;
-      
-      let drawWidth: number, drawHeight: number, dx: number, dy: number;
-
-      // Apply scale mode
-      if (printSettings.scaleMode === 'actual') {
-        // Use actual size (scale based on DPI)
-        const scale = printSettings.dpi / 96; // 96 is standard screen DPI
-        drawWidth = stripImage.width * scale;
-        drawHeight = stripImage.height * scale;
-      } else if (printSettings.scaleMode === 'custom') {
-        // Use custom scale percentage
-        const scale = printSettings.customScale / 100;
-        drawWidth = stripImage.width * scale;
-        drawHeight = stripImage.height * scale;
-      } else {
-        // Fit to page (default)
-        if (stripAspectRatio > canvasAspectRatio) {
-          drawWidth = printWidth;
-          drawHeight = drawWidth / stripAspectRatio;
+        // Use the actual template image width, or scale up to higher DPI if template is lower res
+        const templateDPI = templateImg.naturalWidth / PRINTABLE_4X6_WIDTH;
+        if (templateDPI < DOWNLOAD_DPI) {
+          // Scale up to higher DPI for better quality
+          nativeWidth = PRINTABLE_4X6_WIDTH * DOWNLOAD_DPI;
         } else {
-          drawHeight = printHeight;
-          drawWidth = drawHeight * stripAspectRatio;
+          // Use template's native resolution
+          nativeWidth = templateImg.naturalWidth;
         }
+      } else {
+        // Fallback: use high DPI calculation
+        // Use printable area dimensions (3.86x5.83) for 4x6 landscape
+        const isLandscape = eventSize === '4x6';
+        nativeWidth = isLandscape ? PRINTABLE_4X6_WIDTH * DOWNLOAD_DPI : 2 * DOWNLOAD_DPI;
       }
       
-      // Center the image
-      dx = (printWidth - drawWidth) / 2;
-      dy = (printHeight - drawHeight) / 2;
+      // Generate final templated photo at high quality (PNG for lossless)
+      const highResImage = await generateStrip(templateLayout, photos, eventSize, nativeWidth, 'png');
+      
+      // Add final templated photo to zip
+      const finalResponse = await fetch(highResImage);
+      const finalBlob = await finalResponse.blob();
+      zip.file('final_photo_strip.png', finalBlob);
+      
+      // Generate zip file and download
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      
+      const link = document.createElement("a");
+      link.download = `snapstrip_photos_${new Date().getTime()}.zip`;
+      link.href = zipUrl;
+      link.click();
+      
+        // Clean up the object URL
+        setTimeout(() => URL.revokeObjectURL(zipUrl), 100);
+        setIsGenerating(false);
+        return;
+      } catch (zipError) {
+        console.error('Error creating zip file:', zipError);
+        useZip = false; // Fall through to individual downloads
+      }
+    }
+    
+    // Fallback: download files individually if ZIP is not available or failed
+    if (!useZip) {
+      // Download raw photos first
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        const format = photo.includes('image/png') ? 'png' : 'jpeg';
+        const link = document.createElement("a");
+        link.download = `photo_${i + 1}.${format}`;
+        link.href = photo;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Small delay between downloads to avoid browser blocking
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // Then download final photo
+      const templateLayer = templateLayout.find(l => l.type === 'template');
+      let nativeWidth: number;
+      
+      if (templateLayer && templateLayer.url) {
+        const templateImg = new window.Image();
+        await new Promise((resolve, reject) => {
+          templateImg.onload = resolve;
+          templateImg.onerror = reject;
+          templateImg.src = templateLayer.url!;
+        });
+        const templateDPI = templateImg.naturalWidth / PRINTABLE_4X6_WIDTH;
+        nativeWidth = templateDPI < DOWNLOAD_DPI 
+          ? PRINTABLE_4X6_WIDTH * DOWNLOAD_DPI 
+          : templateImg.naturalWidth;
+      } else {
+        const isLandscape = eventSize === '4x6';
+        nativeWidth = isLandscape ? PRINTABLE_4X6_WIDTH * DOWNLOAD_DPI : 2 * DOWNLOAD_DPI;
+      }
+      
+      const highResImage = await generateStrip(templateLayout, photos, eventSize, nativeWidth, 'png');
+      const link = document.createElement("a");
+      link.download = "final_photo_strip.png";
+      link.href = highResImage;
+      link.click();
+    }
+    
+    setIsGenerating(false);
+  };
   
-      ctx.drawImage(stripImage, dx, dy, drawWidth, drawHeight);
-  
-      const printDataUrl = printCanvas.toDataURL('image/png');
+    const handlePrint = () => {
+      if (!finalImage) return;
+      
+      // Create a new window with just the image and open print dialog
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to print');
+        return;
+      }
 
-      // Format page size for CSS @page rule - use explicit dimensions
-      const pageWidth = paperDims.width;
-      const pageHeight = paperDims.height;
-      const pageSize = printSettings.orientation === 'portrait' 
-        ? `${pageHeight}in ${pageWidth}in`
-        : `${pageWidth}in ${pageHeight}in`;
-  
-      // Use hidden iframe approach to avoid popup blocking
-      try {
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="UTF-8">
-              <title>Print Photo Strip</title>
-              <style>
-                /* @page rule to configure print dialog settings */
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Print Photo Strip</title>
+            <style>
+              @media print {
                 @page {
-                  size: ${pageSize};
-                  margin: ${marginInches}in;
+                  margin: 0;
+                  size: 6in 4in landscape; /* Use 4x6 landscape for borderless support */
                 }
-                
-                /* Additional print media queries for better browser support */
-                @media print {
-                  @page {
-                    size: ${pageSize};
-                    margin: ${marginInches}in;
-                  }
-                  body {
-                    margin: 0;
-                    padding: 0;
-                  }
-                  img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: contain;
-                    display: block;
-                  }
-                  .print-info {
-                    display: none;
-                  }
+                * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
                 }
-                
-                /* Screen preview styles */
                 body {
                   margin: 0;
                   padding: 0;
+                  width: 100%;
+                  height: 100%;
                   display: flex;
                   justify-content: center;
                   align-items: center;
-                  min-height: 100vh;
-                  background: white;
-                  width: 100%;
-                  height: 100%;
                 }
                 img {
                   width: 100%;
-                  height: auto;
-                  max-width: 100%;
-                  max-height: 100vh;
-                  object-fit: contain;
+                  height: 100%;
+                  object-fit: fill; /* Fill entire page for borderless */
                   display: block;
-                  margin: 0 auto;
+                  transform: scaleX(-1); /* Flip horizontally to correct printer orientation */
                 }
-                .print-info {
-                  position: fixed;
-                  top: 10px;
-                  left: 10px;
-                  background: rgba(0, 0, 0, 0.8);
-                  color: white;
-                  padding: 10px 15px;
-                  border-radius: 5px;
-                  font-size: 12px;
-                  font-family: Arial, sans-serif;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="print-info">
-                Paper: ${paperDims.width}" × ${paperDims.height}" ${printSettings.orientation === 'portrait' ? '(Portrait)' : '(Landscape)'} | 
-                Quality: ${printSettings.dpi} DPI | 
-                Margins: ${marginInches > 0 ? marginInches + '"' : 'None'}
-              </div>
-              <img src="${printDataUrl}" alt="Photo Strip" style="width: 100%; height: auto; max-width: 100%; display: block;" />
-              <script>
-                (function() {
-                  const img = document.querySelector('img');
-                  let printTriggered = false;
-                  
-                  function triggerPrint() {
-                    if (printTriggered) return;
-                    printTriggered = true;
-                    setTimeout(function() {
-                      window.focus();
-                      window.print();
-                    }, 500);
-                  }
-                  
-                  if (img) {
-                    if (img.complete && img.naturalWidth > 0) {
-                      // Image already loaded
-                      triggerPrint();
-                    } else {
-                      img.onload = function() {
-                        triggerPrint();
-                      };
-                      img.onerror = function() {
-                        console.error('Failed to load image for printing');
-                        triggerPrint(); // Still try to print
-                      };
-                      // Timeout fallback
-                      setTimeout(function() {
-                        if (!printTriggered) {
-                          console.warn('Image load timeout, printing anyway');
-                          triggerPrint();
-                        }
-                      }, 3000);
-                    }
-                  } else {
-                    // No image found, print anyway
-                    triggerPrint();
-                  }
-                })();
-              </script>
-            </body>
-          </html>
-        `;
-
-        // Create a hidden iframe to print without popup blockers
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'fixed';
-        iframe.style.right = '0';
-        iframe.style.bottom = '0';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = '0';
-        iframe.style.opacity = '0';
-        iframe.style.pointerEvents = 'none';
-        
-        document.body.appendChild(iframe);
-        
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (!iframeDoc) {
-          document.body.removeChild(iframe);
-          throw new Error('Failed to create print iframe');
-        }
-
-        iframeDoc.open();
-        iframeDoc.write(htmlContent);
-        iframeDoc.close();
-
-        // Wait for iframe to load, then print
-        iframe.onload = () => {
-          setTimeout(() => {
-            try {
-              const iframeWindow = iframe.contentWindow;
-              if (iframeWindow) {
-                iframeWindow.focus();
-                iframeWindow.print();
               }
-            } catch (error) {
-              console.error('Print error:', error);
-              alert('Failed to open print dialog. Please check your browser settings.');
-            }
-            
-            // Clean up iframe after a delay
-            setTimeout(() => {
-              if (iframe.parentNode) {
-                document.body.removeChild(iframe);
+              body {
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
               }
-              setIsGenerating(false);
-            }, 1000);
-          }, 500);
-        };
-
-        // Fallback if onload doesn't fire
-        setTimeout(() => {
-          try {
-            const iframeWindow = iframe.contentWindow;
-            if (iframeWindow) {
-              const img = iframeDoc.querySelector('img');
-              if (img && (img.complete || img.naturalWidth > 0)) {
-                iframeWindow.focus();
-                iframeWindow.print();
+              img {
+                max-width: 100%;
+                max-height: 100vh;
               }
-            }
-          } catch (error) {
-            console.error('Print fallback error:', error);
-          }
-          
-          setTimeout(() => {
-            if (iframe.parentNode) {
-              document.body.removeChild(iframe);
-            }
-            setIsGenerating(false);
-          }, 1000);
-        }, 2000);
-
-        setIsGenerating(false);
-      } catch (error: any) {
-        console.error('Failed to print:', error);
-        setIsGenerating(false);
-        alert(`Failed to print: ${error.message}. You can use the download button to save the image and print it manually.`);
-      }
+            </style>
+          </head>
+          <body>
+            <img src="${finalImage}" alt="Photo Strip" />
+            <script>
+              window.onload = function() {
+                window.print();
+                window.onafterprint = function() {
+                  window.close();
+                };
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
     };
+
 
   const handleShare = async () => {
     if (!finalImage || !navigator.share) return;
@@ -616,6 +416,18 @@ export default function PhotoStripPreview({
   };
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Don't handle keyboard events if user is typing in an input field
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
+    // Don't handle keyboard events if a dialog is open
+    const isDialogOpen = document.querySelector('[role="dialog"]') !== null;
+    if (isDialogOpen) {
+      return;
+    }
+
     if (event.key === 'Enter') {
       onRestart();
     } else if (event.key === ' ') {
@@ -632,8 +444,9 @@ export default function PhotoStripPreview({
   }, [handleKeyDown]);
 
   const templateLayerForSize = templateLayout.find(l => l.type === 'template');
-  const studioCanvasWidth = templateLayerForSize?.width || (eventSize === '4x6' ? 600 : 400);
-  const studioCanvasHeight = templateLayerForSize?.height || (eventSize === '4x6' ? 400 : 1200);
+  // Use printable area dimensions for 4x6 landscape (3.86x5.83)
+  const studioCanvasWidth = templateLayerForSize?.width || (eventSize === '4x6' ? PRINTABLE_4X6_WIDTH * 100 : 400);
+  const studioCanvasHeight = templateLayerForSize?.height || (eventSize === '4x6' ? PRINTABLE_4X6_HEIGHT * 100 : 1200);
   const aspectRatio = studioCanvasWidth / studioCanvasHeight;
 
 
@@ -662,14 +475,6 @@ export default function PhotoStripPreview({
           </Button>
           <Button onClick={() => setIsFullscreen(true)} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
           <Expand className="mr-2 h-4 w-4" /> Fullscreen (Space)
-          </Button>
-          <Button 
-            onClick={() => setIsPrintSettingsOpen(true)} 
-            variant="outline" 
-            className="flex-grow sm:flex-grow-0"
-            title="Configure Print Settings"
-          >
-            <Settings className="mr-2 h-4 w-4" /> Print Settings
           </Button>
            <Button onClick={handlePrint} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
               <Printer className="mr-2 h-4 w-4" /> Print
@@ -702,44 +507,6 @@ export default function PhotoStripPreview({
               <X size={32} />
           </Button>
           </DialogContent>
-      </Dialog>
-      
-      <PrintSettingsDialog
-        isOpen={isPrintSettingsOpen}
-        onOpenChange={setIsPrintSettingsOpen}
-      />
-      
-      {/* Print Preview Dialog */}
-      <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogTitle>Print Preview</DialogTitle>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Preview what will be printed. Click &quot;Confirm Print&quot; to send to your printer.
-            </p>
-            {printPreviewImage && (
-              <div className="relative w-full border rounded-lg overflow-hidden bg-gray-100" style={{ aspectRatio: '3/2' }}>
-                <Image
-                  src={printPreviewImage}
-                  alt="Print Preview"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => {
-                setShowPrintPreview(false);
-                setPrintPreviewImage(null);
-              }}>
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmPrint} disabled={isGenerating}>
-                {isGenerating ? 'Printing...' : 'Confirm Print'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
       </Dialog>
     </>
   );

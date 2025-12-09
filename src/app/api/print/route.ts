@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument } from 'pdf-lib';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+const execAsync = promisify(exec);
 
 // Print API Route for Epson L3210 and other printers
 export async function POST(request: NextRequest) {
@@ -27,154 +34,12 @@ export async function POST(request: NextRequest) {
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // Option 1: PrintNode Integration (Cloud Printing Service)
-    if (process.env.PRINTNODE_API_KEY) {
-      return await printViaPrintNode(imageBuffer, settings, printerName || undefined, body.image);
-    }
-
-    // Option 2: Local Printer via System Command (Windows/Linux/Mac)
-    if (process.env.ENABLE_LOCAL_PRINTING === 'true') {
+    // Use local printing (no internet connection required)
       return await printViaLocalPrinter(imageBuffer, settings, printerName);
-    }
-
-    // Option 3: Return instructions for setup
-    return NextResponse.json({
-      success: false,
-      message: 'Print service not configured. Please set up PrintNode or enable local printing.',
-      setupInstructions: {
-        printNode: {
-          steps: [
-            '1. Sign up at https://www.printnode.com',
-            '2. Install PrintNode Client on the machine with your Epson L3210',
-            '3. Add your PrintNode API key to .env.local as PRINTNODE_API_KEY',
-          ],
-        },
-        local: {
-          steps: [
-            '1. Ensure your Epson L3210 is installed and accessible',
-            '2. Set ENABLE_LOCAL_PRINTING=true in .env.local',
-            '3. On Windows, the printer should be accessible via system commands',
-          ],
-        },
-      },
-    });
   } catch (error: any) {
     console.error('Print error:', error);
     return NextResponse.json(
       { error: 'Failed to print', details: error.message },
-      { status: 500 }
-    );
-  }
-}
-
-// PrintNode Integration
-async function printViaPrintNode(
-  imageBuffer: Buffer,
-  settings: any,
-  printerName: string | undefined,
-  originalImageData: string
-) {
-  const apiKey = process.env.PRINTNODE_API_KEY;
-  const baseUrl = 'https://api.printnode.com';
-
-  try {
-    // Get available printers
-    const printersResponse = await fetch(`${baseUrl}/printers`, {
-      headers: {
-        Authorization: `Basic ${Buffer.from(apiKey + ':').toString('base64')}`,
-      },
-    });
-
-    if (!printersResponse.ok) {
-      throw new Error('Failed to fetch printers from PrintNode');
-    }
-
-    const printers = await printersResponse.json();
-    
-    // Find printer by name (case-insensitive, partial matching)
-    let targetPrinter;
-    if (printerName) {
-      const searchName = printerName.toLowerCase();
-      // Try exact match first, then partial match
-      targetPrinter = printers.find((p: any) => 
-        p.name.toLowerCase() === searchName ||
-        p.name.toLowerCase().includes(searchName) ||
-        searchName.includes(p.name.toLowerCase())
-      );
-      
-      // If still not found, try matching key parts (e.g., "L3210" should match "EPSON L3210 Series")
-      if (!targetPrinter) {
-        const searchParts = searchName.split(/\s+/).filter(part => part.length > 2);
-        targetPrinter = printers.find((p: any) => {
-          const printerNameLower = p.name.toLowerCase();
-          return searchParts.some(part => printerNameLower.includes(part));
-        });
-      }
-    } else {
-      // Default: try to find Epson L3210
-      targetPrinter = printers.find((p: any) => 
-        p.name.toLowerCase().includes('l3210') || 
-        p.name.toLowerCase().includes('epson')
-      );
-    }
-
-    if (!targetPrinter) {
-      return NextResponse.json({
-        error: 'Printer not found',
-        message: `Could not find printer matching "${printerName}". Please check the printer name.`,
-        availablePrinters: printers.map((p: any) => p.name),
-      }, { status: 404 });
-    }
-
-    // Calculate paper dimensions
-    const paperDims = getPaperDimensions(settings.paperSize, settings);
-    const marginInches = getMarginInches(settings.margins, settings);
-
-    // PrintNode requires PDF format for images - convert image to PDF
-    const pdfBase64 = await convertImageToPdf(imageBuffer, paperDims, settings);
-    
-    // Create print job with pdf_base64 content type
-    const printJob = {
-      printerId: targetPrinter.id,
-      title: 'Photo Strip Print',
-      contentType: 'pdf_base64',
-      content: pdfBase64,
-      source: 'Alpas Studio',
-      printJobOptions: {
-        paper: paperDims.name || `${paperDims.width}x${paperDims.height}`,
-        orientation: settings.orientation || 'landscape',
-        copies: 1,
-        dpi: settings.dpi || 300,
-        fit_to_page: true, // Ensure image fits on page
-      },
-    };
-
-    const jobResponse = await fetch(`${baseUrl}/printjobs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(apiKey + ':').toString('base64')}`,
-      },
-      body: JSON.stringify(printJob),
-    });
-
-    if (!jobResponse.ok) {
-      const error = await jobResponse.text();
-      throw new Error(`PrintNode error: ${error}`);
-    }
-
-    const jobData = await jobResponse.json();
-
-    return NextResponse.json({
-      success: true,
-      message: 'Print job submitted successfully',
-      jobId: jobData.id,
-      printer: targetPrinter.name,
-    });
-  } catch (error: any) {
-    console.error('PrintNode error:', error);
-    return NextResponse.json(
-      { error: 'PrintNode printing failed', details: error.message },
       { status: 500 }
     );
   }
@@ -186,15 +51,100 @@ async function printViaLocalPrinter(
   settings: any,
   printerName?: string
 ) {
-  // This would require system-specific implementation
-  // For Windows, you could use PowerShell or a library
-  // For Linux/Mac, you could use CUPS or lp command
-  
-  return NextResponse.json({
-    success: false,
-    message: 'Local printing requires system-specific implementation',
-    note: 'This feature requires additional setup based on your operating system',
-  });
+  try {
+    const platform = os.platform();
+    const paperDims = getPaperDimensions(settings.paperSize, settings);
+    const tempDir = os.tmpdir();
+    let tempFilePath: string;
+    let printCommand: string;
+
+    if (platform === 'win32') {
+      // Windows: Save as PNG/JPG and print via mspaint (built-in, no extra deps)
+      // Note: mspaint.exe uses the printer's default settings. To control:
+      // - Paper size (4x6, borderless, etc.)
+      // - Paper type (Epson Matte, etc.)
+      // - Quality settings
+      // - Orientation
+      // Set these as default preferences in Windows Printer Properties
+      const imageExt = imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8 ? 'jpg' : 'png';
+      tempFilePath = path.join(tempDir, `print-${Date.now()}.${imageExt}`);
+      fs.writeFileSync(tempFilePath, imageBuffer);
+    
+      // mspaint supports /p (default printer) and /pt (specific printer)
+      const quotedPath = `"${tempFilePath}"`;
+    if (printerName) {
+        // /pt "<file>" "<printer>"
+        const quotedPrinter = `"${printerName.replace(/"/g, '\\"')}"`;
+        // If /pt fails (invalid printer), fall back to default printer (/p)
+        printCommand = `cmd /C "mspaint.exe /pt ${quotedPath} ${quotedPrinter} || mspaint.exe /p ${quotedPath}"`;
+      } else {
+        // /p "<file>" prints to default printer
+        printCommand = `mspaint.exe /p ${quotedPath}`;
+      }
+    } else {
+      // macOS/Linux: Convert to PDF and use lp command
+      const pdfBase64 = await convertImageToPdf(imageBuffer, paperDims, settings);
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      tempFilePath = path.join(tempDir, `print-${Date.now()}.pdf`);
+      fs.writeFileSync(tempFilePath, pdfBuffer);
+      
+      if (platform === 'darwin') {
+        // macOS: Use lp command
+        const printer = printerName ? `-d "${printerName}"` : '';
+        printCommand = `lp ${printer} "${tempFilePath}"`;
+      } else {
+        // Linux: Use lp command (CUPS)
+        const printer = printerName ? `-d "${printerName}"` : '';
+        printCommand = `lp ${printer} "${tempFilePath}"`;
+      }
+    }
+    
+    // Execute print command
+    try {
+      const { stdout, stderr } = await execAsync(printCommand);
+      
+      // Clean up temp file after a delay (give printer time to read it)
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+          }
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup temp file:', cleanupError);
+    }
+      }, 5000);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Print job submitted successfully',
+        printer: printerName || 'default printer',
+        output: stdout,
+        note: platform === 'win32' ? 'Note: Printer settings (paper size, borderless, quality, etc.) are controlled by your printer\'s default preferences. Set them in Windows Printer Properties if needed.' : undefined,
+      });
+    } catch (execError: any) {
+      // Clean up temp file on error
+      try {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', cleanupError);
+      }
+      
+      throw new Error(`Print command failed: ${execError.message || execError.stderr || 'Unknown error'}`);
+    }
+  } catch (error: any) {
+    console.error('Local printing error:', error);
+    return NextResponse.json(
+      { 
+        error: 'Local printing failed', 
+        details: error.message,
+        platform: os.platform(),
+        note: 'Make sure your printer is installed and accessible. On Windows, ensure the printer name matches exactly as it appears in your printer settings.'
+      },
+      { status: 500 }
+    );
+  }
 }
 
 function getPaperDimensions(paperSize: string, settings: any) {
@@ -233,7 +183,7 @@ function getMarginInches(margins: string, settings: any) {
   }
 }
 
-// Convert image buffer to PDF base64 for PrintNode
+// Convert image buffer to PDF
 // Creates a PDF with the image embedded using pdf-lib
 async function convertImageToPdf(
   imageBuffer: Buffer,

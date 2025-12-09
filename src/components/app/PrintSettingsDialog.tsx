@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +85,43 @@ export default function PrintSettingsDialog({
     }
   }, [isOpen]);
 
+  // Prevent spacebar from triggering other handlers when typing in inputs
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    // If user is typing in an input/textarea, stop spacebar from bubbling
+    if (event.key === ' ' || event.key === 'Space') {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        // Allow spacebar to work normally in input fields
+        return;
+      }
+      // Prevent spacebar from triggering other handlers when dialog is open
+      event.stopPropagation();
+    }
+  }, []);
+
+  // Stop global keyboard handlers when dialog is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      // If user is typing in an input field, don't interfere
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
+      // Prevent spacebar from triggering other handlers when dialog is open
+      if (event.key === ' ' || event.key === 'Space') {
+        event.stopPropagation();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true); // Use capture phase
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    };
+  }, [isOpen]);
+
   const handleSave = () => {
     savePrintSettings(settings);
     onOpenChange(false);
@@ -136,7 +173,10 @@ export default function PrintSettingsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto"
+        onKeyDown={handleKeyDown}
+      >
         <DialogHeader>
           <DialogTitle>Print Settings</DialogTitle>
           <DialogDescription>

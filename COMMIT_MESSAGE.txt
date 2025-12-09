@@ -1,0 +1,19 @@
+Fix photo orientation and print dimensions
+
+- Remove mirror effects from photo capture and preview displays
+  - Photos are now saved in correct orientation (not horizontally flipped)
+  - Video preview and review images display without mirroring
+  - Photo thumbnails display in correct orientation
+
+- Update print dimensions from custom printable area to standard 4x6
+  - Changed PRINTABLE_4X6_WIDTH from 3.84 to 4 inches
+  - Changed PRINTABLE_4X6_HEIGHT from 5.81 to 6 inches
+  - Updated comments to reflect standard 4x6 dimensions
+
+- Add horizontal flip transform to print CSS
+  - Corrects printer orientation issue where prints were flipped
+  - Transform only applies during printing, not to previews or downloads
+
+Files changed:
+- src/components/app/PhotoCapture.tsx: Removed scale-x transforms from video, review, and thumbnail images
+- src/components/app/PhotoStripPreview.tsx: Updated dimensions to 4x6, added print flip transform

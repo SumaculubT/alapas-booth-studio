@@ -105,12 +105,20 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const context = canvas.getContext("2d");
+      const context = canvas.getContext("2d", { 
+        willReadFrequently: false,
+        alpha: true 
+      });
       if (context) {
-        context.translate(video.videoWidth, 0);
-        context.scale(-1, 1);
+        // Enable high-quality image smoothing
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        
+        // Draw video without mirroring - save photos in correct orientation
+        // (Preview is mirrored via CSS for better UX, but saved photos should not be)
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const dataUrl = canvas.toDataURL("image/jpeg");
+        // Use maximum JPEG quality (1.0 = 100%) for better photo quality
+        const dataUrl = canvas.toDataURL("image/jpeg", 1.0);
         setCurrentPhoto(dataUrl);
         setCaptureState('review');
       }
@@ -206,10 +214,10 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
         autoPlay 
         playsInline 
         muted 
-        className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${captureState === 'review' ? 'opacity-0' : 'opacity-100'}`} 
+        className={`w-full h-full object-cover transition-opacity duration-300 ${captureState === 'review' ? 'opacity-0' : 'opacity-100'}`} 
       />
       {currentPhoto && captureState === 'review' && (
-         <Image src={currentPhoto} alt="Review photo" fill className="object-contain scale-x-[-1]"/>
+         <Image src={currentPhoto} alt="Review photo" fill className="object-contain"/>
       )}
       
       <Button onClick={handleInterrupt} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10">
@@ -278,7 +286,7 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
            {Array.from({ length: photoCount > 0 ? photoCount : 4 }).map((_, i) => (
                 <div key={i} className="aspect-square bg-black/30 rounded-md flex items-center justify-center overflow-hidden">
                     {photos[i] ? (
-                       <Image src={photos[i]} alt={`Captured photo ${i+1}`} width={100} height={100} className="w-full h-full object-cover scale-x-[-1]"/>
+                       <Image src={photos[i]} alt={`Captured photo ${i+1}`} width={100} height={100} className="w-full h-full object-cover"/>
                     ) : (
                        <span className="text-4xl font-bold text-white/30">{i+1}</span>
                     )}
