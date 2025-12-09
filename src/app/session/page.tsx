@@ -1,143 +1,41 @@
 
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import PhotoCapture from '@/components/app/PhotoCapture';
-import PhotoStripPreview from '@/components/app/PhotoStripPreview';
-import { getTemplateImage } from '@/lib/template-cache';
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-type Layer = {
-  id: string;
-  type: 'image' | 'camera' | 'template';
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  isVisible: boolean;
-  isLocked: boolean;
-  url?: string;
-  bgColor?: string;
-};
-
-type SessionStep = 'capture' | 'preview';
-
-function PhotoBoothSession() {
+function SessionRedirect() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [step, setStep] = useState<SessionStep>('capture');
-  const [templateLayout, setTemplateLayout] = useState<Layer[] | null>(null);
-  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
-  
-  const eventSize = searchParams.get('size') || '2x6';
-  const photoCount = Number(searchParams.get('photoCount')) || 4;
-  const countdown = Number(searchParams.get('countdown')) || 5;
 
   useEffect(() => {
-    // Load the layout and template from storage/cache
-    const savedLayout = sessionStorage.getItem('snapstrip-layout');
-    const savedTemplateImage = getTemplateImage();
-
-    if (savedLayout) {
-      let layout = JSON.parse(savedLayout);
-      if (savedTemplateImage) {
-        const templateLayer = layout.find((l: Layer) => l.type === 'template');
-        if (templateLayer) {
-          templateLayer.url = savedTemplateImage;
-        } else {
-          // If no template layer exists, create one
-          const isLandscape = eventSize === '4x6';
-          layout.unshift({
-            id: 'template-from-storage',
-            type: 'template',
-            name: 'Template Image',
-            x: 0,
-            y: 0,
-            width: isLandscape ? 600 : 400,
-            height: isLandscape ? 400 : 1200,
-            rotation: 0,
-            isVisible: true,
-            isLocked: false,
-            url: savedTemplateImage,
-          });
-        }
+    // Check sessionStorage for settings to determine which layout to use
+    const savedSettings = sessionStorage.getItem('session-settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        // Strip layout is disabled, always redirect to landscape
+        router.replace('/session/landscape/welcome');
+      } catch (error) {
+        // If error parsing, default to landscape
+        router.replace('/session/landscape/welcome');
       }
-      setTemplateLayout(layout);
     } else {
-      // If there's no layout, we can't proceed. Go back to the studio.
-      router.push(`/studio?size=${eventSize}`);
-      return;
+      // No settings found, redirect to home page to choose layout
+      router.replace('/');
     }
-    
-    // Directly go to capture step
-    setStep('capture');
-  }, [eventSize, router]);
-
-
-  const handleCaptureComplete = (photos: string[]) => {
-    setCapturedPhotos(photos);
-    setStep('preview');
-  };
-
-  const handleRestart = () => {
-    setCapturedPhotos([]);
-    setStep('capture');
-  };
-  
-  const handleExit = () => {
-    router.push('/');
-  };
-
-  const renderStep = () => {
-    switch (step) {
-      case 'capture':
-        return (
-          <PhotoCapture
-            onCaptureComplete={handleCaptureComplete}
-            onExit={handleExit}
-            photoCount={photoCount}
-            countdown={countdown}
-          />
-        );
-      case 'preview':
-        if (templateLayout) {
-          return (
-            <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
-                <div className="flex flex-col items-center justify-center w-full space-y-4">
-                    <PhotoStripPreview
-                        templateLayout={templateLayout}
-                        photos={capturedPhotos}
-                        onRestart={handleRestart}
-                        onExit={handleExit}
-                        eventSize={eventSize}
-                    />
-                </div>
-              <footer className="text-center text-sm text-muted-foreground pt-8">
-                <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
-              </footer>
-            </main>
-          );
-        }
-        return <div>Loading template...</div>;
-      default:
-        return null;
-    }
-  };
+  }, [router]);
 
   return (
-    <>
-      {renderStep()}
-    </>
+    <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+      <div>Redirecting...</div>
+    </div>
   );
 }
 
-
 export default function SessionPage() {
-    return (
-        <Suspense fallback={<div>Loading session...</div>}>
-            <PhotoBoothSession />
-        </Suspense>
-    )
+  return (
+    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white">Loading session...</div>}>
+      <SessionRedirect />
+    </Suspense>
+  );
 }

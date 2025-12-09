@@ -3,25 +3,26 @@
 import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-function StudioRedirect() {
+function StripStudioRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to landscape by default (strip is disabled)
+    // Strip layout is currently disabled - redirect to landscape
     router.replace('/studio/landscape');
   }, [router]);
 
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center">
-      <div>Redirecting...</div>
+      <div>Redirecting to landscape studio...</div>
     </div>
   );
 }
 
-export default function StudioPage() {
+export default function StripStudioPage() {
   return (
     <Suspense fallback={<div className="fixed inset-0 bg-background flex items-center justify-center">Loading...</div>}>
-      <StudioRedirect />
+      <StripStudioRedirect />
     </Suspense>
   );
 }
+

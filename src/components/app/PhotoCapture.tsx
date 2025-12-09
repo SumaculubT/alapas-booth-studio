@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Camera as CameraIcon, CheckCircle, X, RefreshCw, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import welcomeImage from "@/lib/welcome.webp";
 
 interface PhotoCaptureProps {
   onCaptureComplete: (photos: string[]) => void;
@@ -16,69 +15,57 @@ interface PhotoCaptureProps {
   countdown: number;
 }
 
-type CaptureState = 'welcome' | 'capturing' | 'review' | 'finished';
+type CaptureState = 'capturing' | 'review' | 'finished';
 
 export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, countdown: initialCountdown }: PhotoCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isTakingPicture, setIsTakingPicture] = useState(false);
-  const [captureState, setCaptureState] = useState<CaptureState>('welcome');
+  const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const { toast } = useToast();
-  
-  const startSession = useCallback(() => {
-    if(captureState === 'welcome') {
-      setPhotos([]);
-      setCurrentPhoto(null);
-      setCaptureState('capturing');
-    }
-  }, [captureState]);
 
   const handleInterrupt = () => {
-    if (captureState === 'capturing' || captureState === 'review') {
-      // Stop camera stream
-      if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach((track) => track.stop());
-      }
-      setCaptureState('welcome');
-    } else {
-      onExit();
+    // Clear any countdown interval
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
+    // Stop camera stream before exiting
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    // Clear state
+    setCountdown(null);
+    setIsTakingPicture(false);
+    // Exit the session
+    onExit();
   }
 
+  // Initialize capture on mount
   useEffect(() => {
-    if (captureState === 'welcome') {
-      const handleInteraction = (event: MouseEvent | KeyboardEvent) => {
-        if (event instanceof KeyboardEvent && event.code !== 'Space') {
-          return;
-        }
-        startSession();
-      };
+    setPhotos([]);
+    setCurrentPhoto(null);
+    setCaptureState('capturing');
+  }, []);
 
-      window.addEventListener('click', handleInteraction);
-      window.addEventListener('keydown', handleInteraction);
 
-      return () => {
-        window.removeEventListener('click', handleInteraction);
-        window.removeEventListener('keydown', handleInteraction);
-      };
+  useEffect(() => {
+    if (captureState !== 'capturing' && captureState !== 'review') {
+      return;
     }
-  }, [captureState, startSession]);
-
-
-  useEffect(() => {
-    if (captureState !== 'capturing' && captureState !== 'review') return;
 
     const getCameraPermission = async () => {
-      // Don't re-request if we are just reviewing
+      // Don't re-request if we already have the stream
       if(videoRef.current?.srcObject) {
         setHasCameraPermission(true);
         return;
-      };
+      }
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -100,14 +87,15 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
 
     getCameraPermission();
 
-    // Only cleanup when leaving the capture/review states
+    // Cleanup camera stream only on unmount or when leaving capture/review states
     return () => {
-        if (captureState !== 'capturing' && captureState !== 'review') {
-             if (videoRef.current && videoRef.current.srcObject) {
-                const stream = videoRef.current.srcObject as MediaStream;
-                stream.getTracks().forEach((track) => track.stop());
-            }
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => track.stop());
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
         }
+      }
     };
   }, [captureState, toast]);
 
@@ -137,15 +125,21 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
     setIsTakingPicture(true);
     let count = initialCountdown;
     setCountdown(count);
+    // Clear any existing interval
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
     const interval = setInterval(() => {
       count -= 1;
       setCountdown(count);
       if (count === 0) {
         clearInterval(interval);
+        countdownIntervalRef.current = null;
         setCountdown(null);
         takePicture();
       }
     }, 1000);
+    countdownIntervalRef.current = interval;
   }, [photos.length, photoCount, isTakingPicture, initialCountdown]);
   
   useEffect(() => {
@@ -195,20 +189,16 @@ export default function PhotoCapture({ onCaptureComplete, onExit, photoCount, co
     };
   }, [captureState, handleConfirm, handleRetake]);
   
-  if (captureState === 'welcome') {
-    return (
-       <div className="fixed inset-0 bg-black cursor-pointer" onClick={(e) => { if (e.target === e.currentTarget) startSession();}}>
-          <Image src={welcomeImage} alt="Welcome to the photo booth" fill objectFit="cover" placeholder="blur" />
-           <Button onClick={onExit} variant="ghost" size="icon" className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10">
-            <X size={32} />
-          </Button>
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white text-center p-4 bg-black/50 rounded-xl">
-             <h1 className="text-2xl font-bold">Touch the screen or press spacebar to start!</h1>
-          </div>
-       </div>
-    )
-  }
-
+  // Cleanup interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+  }, []);
+  
   return (
     <div className="fixed inset-0 bg-black text-white">
       <video 

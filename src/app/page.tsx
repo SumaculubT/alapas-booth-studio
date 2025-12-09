@@ -22,38 +22,12 @@ export default function SetupPage() {
             Welcome to Alpas Studio
           </h1>
           <p className="text-muted-foreground mt-2">
-            Choose your event setup to get started
+            Create your photo booth template
           </p>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <Link href="/studio?size=2x6">
-            <Card className="h-full flex flex-col group hover:ring-2 hover:ring-primary transition-all">
-              <CardHeader>
-                <CardTitle>Classic Booth</CardTitle>
-                <CardDescription>
-                  The timeless 2x6 photo strip. Perfect for any occasion.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col justify-between">
-                <div className="relative w-48 h-96 mx-auto rounded-md overflow-hidden bg-muted mb-4">
-                  <Image
-                    src="https://picsum.photos/seed/photobooth2x6/400/800"
-                    alt="2x6 photo strip preview"
-                    fill
-                    className="object-cover"
-                    data-ai-hint="photobooth classic"
-                  />
-                </div>
-                <Button className="w-full mt-auto">
-                  Select 2x6 Strips
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/studio?size=4x6">
+        <div className="flex justify-center">
+          <Link href="/studio/landscape" className="w-full max-w-md">
             <Card className="h-full flex flex-col group hover:ring-2 hover:ring-primary transition-all">
               <CardHeader>
                 <CardTitle>Landscape Postcard</CardTitle>
@@ -72,7 +46,7 @@ export default function SetupPage() {
                   />
                 </div>
                 <Button className="w-full mt-auto">
-                  Select 4x6 Postcard
+                  Start Creating
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </CardContent>
