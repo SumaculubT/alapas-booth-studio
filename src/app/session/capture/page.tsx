@@ -1,46 +1,63 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import PhotoCapture from '@/components/app/PhotoCapture';
 
-function CaptureRedirect() {
+function CaptureScreen() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [sessionSettings, setSessionSettings] = useState<{
+    photoCount: number;
+    countdown: number;
+    filter: string;
+    size: string;
+  } | null>(null);
 
   useEffect(() => {
-    // Check if query params exist (backward compatibility)
-    const eventSize = searchParams.get('size') || '2x6';
-    const photoCount = searchParams.get('photoCount');
-    const countdown = searchParams.get('countdown');
-    const filter = searchParams.get('filter');
-
-    // If query params exist, store them in sessionStorage
-    if (photoCount && countdown) {
-      sessionStorage.setItem('session-settings', JSON.stringify({
-        photoCount: Number(photoCount),
-        countdown: Number(countdown),
-        filter: filter || 'none',
-        size: eventSize
-      }));
+    const savedSettings = sessionStorage.getItem('session-settings');
+    if (savedSettings) {
+      try {
+        setSessionSettings(JSON.parse(savedSettings));
+      } catch (error) {
+        console.error('Error parsing session settings:', error);
+        router.replace('/studio');
+      }
+    } else {
+      router.replace('/studio');
     }
+  }, [router]);
 
-    // Redirect to route-based capture page
-    const layoutRoute = eventSize === '4x6' ? '/session/landscape/capture' : '/session/strip/capture';
-    router.replace(layoutRoute);
-  }, [router, searchParams]);
+  const handleCaptureComplete = (photos: string[]) => {
+    sessionStorage.setItem('captured-photos', JSON.stringify(photos));
+    router.push('/session/preview');
+  };
+
+  const handleExit = () => {
+    router.push('/session/welcome');
+  };
+
+  if (!sessionSettings) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+        <div>Loading camera...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-      <div>Redirecting...</div>
-    </div>
+    <PhotoCapture
+      onCaptureComplete={handleCaptureComplete}
+      onExit={handleExit}
+      photoCount={sessionSettings.photoCount}
+      countdown={sessionSettings.countdown}
+    />
   );
 }
 
 export default function CapturePage() {
   return (
     <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white">Loading camera...</div>}>
-      <CaptureRedirect />
+      <CaptureScreen />
     </Suspense>
   );
 }
-

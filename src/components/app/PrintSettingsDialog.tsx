@@ -19,8 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const PRINT_SETTINGS_KEY = 'snapstrip-print-settings';
+import { STORAGE_KEYS, getStorageItem, setStorageItem } from "@/lib/storage";
 
 export interface PrintSettings {
   paperSize: '4x6' | '5x7' | '8x10' | 'custom';
@@ -56,7 +55,7 @@ interface PrintSettingsDialogProps {
 export function loadPrintSettings(): PrintSettings {
   if (typeof window === 'undefined') return defaultPrintSettings;
   
-  const saved = localStorage.getItem(PRINT_SETTINGS_KEY);
+  const saved = getStorageItem(localStorage, STORAGE_KEYS.printSettings);
   if (saved) {
     try {
       return { ...defaultPrintSettings, ...JSON.parse(saved) };
@@ -69,7 +68,7 @@ export function loadPrintSettings(): PrintSettings {
 
 export function savePrintSettings(settings: PrintSettings) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(PRINT_SETTINGS_KEY, JSON.stringify(settings));
+  setStorageItem(localStorage, STORAGE_KEYS.printSettings, JSON.stringify(settings));
 }
 
 export default function PrintSettingsDialog({

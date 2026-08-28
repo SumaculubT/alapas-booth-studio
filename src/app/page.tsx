@@ -27,7 +27,7 @@ export default function SetupPage() {
         </header>
 
         <div className="flex justify-center">
-          <Link href="/studio/landscape" className="w-full max-w-md">
+          <Link href="/studio" className="w-full max-w-md">
             <Card className="h-full flex flex-col group hover:ring-2 hover:ring-primary transition-all">
               <CardHeader>
                 <CardTitle>Landscape Postcard</CardTitle>

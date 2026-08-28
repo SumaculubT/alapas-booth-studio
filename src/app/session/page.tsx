@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useEffect } from 'react';
@@ -8,19 +7,10 @@ function SessionRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check sessionStorage for settings to determine which layout to use
     const savedSettings = sessionStorage.getItem('session-settings');
     if (savedSettings) {
-      try {
-        const settings = JSON.parse(savedSettings);
-        // Strip layout is disabled, always redirect to landscape
-        router.replace('/session/landscape/welcome');
-      } catch (error) {
-        // If error parsing, default to landscape
-        router.replace('/session/landscape/welcome');
-      }
+      router.replace('/session/welcome');
     } else {
-      // No settings found, redirect to home page to choose layout
       router.replace('/');
     }
   }, [router]);

@@ -256,7 +256,7 @@ export default function PhotoStripPreview({
         const zipUrl = URL.createObjectURL(zipBlob);
 
         const link = document.createElement("a");
-        link.download = `snapstrip_photos_${new Date().getTime()}.zip`;
+        link.download = `alapas-studio_photos_${new Date().getTime()}.zip`;
         link.href = zipUrl;
         link.click();
 
@@ -395,16 +395,16 @@ export default function PhotoStripPreview({
     try {
       const response = await fetch(finalImage);
       const blob = await response.blob();
-      const file = new File([blob], 'snapstrip.png', { type: 'image/png' });
+      const file = new File([blob], 'alapas-studio.png', { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'My SnapStrip!',
+          title: 'Alpas Studio',
           text: 'Check out my photo strip from Alpas Studio!',
         });
       } else {
         await navigator.share({
-          title: 'My SnapStrip!',
+          title: 'Alpas Studio',
           text: 'Check out my photo strip from Alpas Studio! (Image attached)',
           url: finalImage,
         });
@@ -481,7 +481,7 @@ export default function PhotoStripPreview({
         <Button onClick={handleDownload} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
           <Download className="mr-2 h-4 w-4" /> Download
         </Button>
-        {typeof navigator !== 'undefined' && navigator.share && (
+        {typeof navigator !== 'undefined' && 'share' in navigator && (
           <Button onClick={handleShare} disabled={isGenerating} className="flex-grow sm:flex-grow-0">
             <Share2 className="mr-2 h-4 w-4" /> Share
           </Button>

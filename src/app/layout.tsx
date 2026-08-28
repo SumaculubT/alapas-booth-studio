@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'Alpas Studio',
-  description: 'Create and capture custom photo strips.',
+  description: 'Design 4x6 postcard layouts, capture photos, then print or share.',
 };
 
 export default function RootLayout({

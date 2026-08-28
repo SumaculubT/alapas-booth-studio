@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   SidebarProvider,
   Sidebar,
@@ -40,6 +39,7 @@ import {
 import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
 import PrintSettingsDialog from "@/components/app/PrintSettingsDialog";
 import { setTemplateImage, clearTemplateImage } from "@/lib/template-cache";
+import { STORAGE_KEYS, getStorageItem, setStorageItem, removeStorageItem } from "@/lib/storage";
 
 export interface Layer {
   id: string;
@@ -68,31 +68,17 @@ const photoBoxColors = [
 ];
 
 const SNAP_THRESHOLD = 5;
-const USER_TEMPLATE_KEY = 'snapstrip-user-template';
+const DEFAULT_TEMPLATE_PATH = '/templates/landscape/century_layout.png';
+const eventSize = '4x6';
 
-interface SnapStripStudioProps {
-  layoutType: 'strip' | 'landscape';
-}
-
-export default function SnapStripStudio({ layoutType }: SnapStripStudioProps) {
+export default function AlpasStudio() {
   const router = useRouter();
-  const eventSize = layoutType === 'landscape' ? '4x6' : '2x6';
-  const isLandscape = layoutType === 'landscape';
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
-  
-  const getInitialCanvasSize = () => {
-    if (isLandscape) {
-      return { width: 600, height: 400 };
-    }
-    // This should match the aspect ratio of the default template
-    return { width: 600, height: 1800 };
-  };
-
-  const [canvasSize, setCanvasSize] = useState(getInitialCanvasSize());
+  const [canvasSize, setCanvasSize] = useState({ width: 600, height: 400 });
   const [draggingLayer, setDraggingLayer] = useState<{ id: string; initialX: number; initialY: number; } | null>(null);
   const [resizingState, setResizingState] = useState<{ layerId: string, direction: ResizeDirection, initialX: number, initialY: number } | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -121,36 +107,28 @@ export default function SnapStripStudio({ layoutType }: SnapStripStudioProps) {
   };
   
   useEffect(() => {
-    const savedUserTemplate = localStorage.getItem(USER_TEMPLATE_KEY);
+    const savedUserTemplate = getStorageItem(localStorage, STORAGE_KEYS.userTemplate);
     if (savedUserTemplate) {
        const img = new window.Image();
        img.onload = () => {
            setDefaultTemplate(savedUserTemplate, img.width, img.height);
        };
        img.src = savedUserTemplate;
-    } else if (isLandscape) {
-        // Use the landscape template only for landscape layout
-        // Load directly from public folder to preserve original PNG quality
-        const templatePath = '/templates/landscape/century_layout.png';
+    } else {
         const img = new window.Image();
         img.onload = () => {
-          // Adjust canvas size to match the landscape template's aspect ratio
           const aspectRatio = img.naturalWidth / img.naturalHeight;
           const newWidth = 600;
           const newHeight = 600 / aspectRatio;
           setCanvasSize({ width: newWidth, height: newHeight });
-          // Use the consistent path (not img.src which may be absolute URL)
-          setDefaultTemplate(templatePath, newWidth, newHeight);
+          setDefaultTemplate(DEFAULT_TEMPLATE_PATH, newWidth, newHeight);
         };
         img.onerror = (error) => {
           console.error('Failed to load default landscape template:', error);
-          // Template will not load, but component will still render
         };
-        // Load template directly from public folder to avoid Next.js optimization
-        img.src = templatePath;
+        img.src = DEFAULT_TEMPLATE_PATH;
     }
-    // For strip layout, no default template available - user must upload one
-}, [isLandscape]);
+}, []);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -273,14 +251,13 @@ export default function SnapStripStudio({ layoutType }: SnapStripStudioProps) {
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
         try {
-          localStorage.setItem(USER_TEMPLATE_KEY, dataUrl);
+          setStorageItem(localStorage, STORAGE_KEYS.userTemplate, dataUrl);
 
           const img = new window.Image();
           img.onload = () => {
-            // Adjust canvas size to match the uploaded template's aspect ratio
             const aspectRatio = img.naturalWidth / img.naturalHeight;
-            const newWidth = isLandscape ? 600 : 400;
-            const newHeight = isLandscape ? 600 / aspectRatio : 400 / aspectRatio;
+            const newWidth = 600;
+            const newHeight = 600 / aspectRatio;
             setCanvasSize({ width: newWidth, height: newHeight });
             setDefaultTemplate(dataUrl, newWidth, newHeight);
           };
@@ -319,27 +296,19 @@ export default function SnapStripStudio({ layoutType }: SnapStripStudioProps) {
   const removeLayer = (id: string) => {
     const layer = layers.find(l => l.id === id);
     if(layer?.type === 'template') {
-        localStorage.removeItem(USER_TEMPLATE_KEY);
-        // Reset to the default template if landscape layout
-        if (isLandscape) {
-          const templatePath = '/templates/landscape/century_layout.png';
-          const img = new window.Image();
-          img.onload = () => {
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            const newWidth = 600;
-            const newHeight = 600 / aspectRatio;
-            setCanvasSize({ width: newWidth, height: newHeight });
-            setDefaultTemplate(templatePath, newWidth, newHeight);
-          };
-          img.onerror = () => {
-            // If template fails to load, just remove the layer
-            setLayers(layers.filter(layer => layer.id !== id));
-          };
-          img.src = templatePath;
-        } else {
-          // For strip layout, just remove the template layer
+        removeStorageItem(localStorage, STORAGE_KEYS.userTemplate);
+        const img = new window.Image();
+        img.onload = () => {
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          const newWidth = 600;
+          const newHeight = 600 / aspectRatio;
+          setCanvasSize({ width: newWidth, height: newHeight });
+          setDefaultTemplate(DEFAULT_TEMPLATE_PATH, newWidth, newHeight);
+        };
+        img.onerror = () => {
           setLayers(layers.filter(layer => layer.id !== id));
-        }
+        };
+        img.src = DEFAULT_TEMPLATE_PATH;
     } else {
        setLayers(layers.filter(layer => layer.id !== id));
     }
@@ -458,7 +427,6 @@ export default function SnapStripStudio({ layoutType }: SnapStripStudioProps) {
     setDraggedLayerId(null);
   };
 
-  const hasTemplate = layers.some(l => l.type === 'template');
   const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
 
   const handleStartSession = (settings: { countdown: number; filter: string }) => {
@@ -475,25 +443,21 @@ export default function SnapStripStudio({ layoutType }: SnapStripStudioProps) {
     // Store template URL in both in-memory cache and sessionStorage for persistence
     if (templateLayer && templateLayer.url) {
       setTemplateImage(templateLayer.url);
-      // Store template URL in sessionStorage so it persists after page refresh
-      sessionStorage.setItem('snapstrip-template-url', templateLayer.url);
+      setStorageItem(sessionStorage, STORAGE_KEYS.templateUrl, templateLayer.url);
     } else {
       clearTemplateImage();
-      sessionStorage.removeItem('snapstrip-template-url');
+      removeStorageItem(sessionStorage, STORAGE_KEYS.templateUrl);
     }
-    sessionStorage.setItem('snapstrip-layout', JSON.stringify(layoutWithoutTemplateUrl));
+    setStorageItem(sessionStorage, STORAGE_KEYS.layout, JSON.stringify(layoutWithoutTemplateUrl));
 
-    // Store session settings in sessionStorage
     sessionStorage.setItem('session-settings', JSON.stringify({
       photoCount: cameraLayersCount,
       countdown: settings.countdown,
       filter: settings.filter,
       size: eventSize
     }));
-    
-    // Route to route-based welcome page
-    const sessionRoute = layoutType === 'landscape' ? '/session/landscape/welcome' : '/session/strip/welcome';
-    router.push(sessionRoute);
+
+    router.push('/session/welcome');
   };
 
   return (

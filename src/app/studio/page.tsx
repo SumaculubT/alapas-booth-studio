@@ -1,27 +1,12 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-function StudioRedirect() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Redirect to landscape by default (strip is disabled)
-    router.replace('/studio/landscape');
-  }, [router]);
-
-  return (
-    <div className="fixed inset-0 bg-background flex items-center justify-center">
-      <div>Redirecting...</div>
-    </div>
-  );
-}
+import { Suspense } from 'react';
+import AlpasStudio from '@/components/app/AlpasStudio';
 
 export default function StudioPage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-background flex items-center justify-center">Loading...</div>}>
-      <StudioRedirect />
+    <Suspense fallback={<div>Loading...</div>}>
+      <AlpasStudio />
     </Suspense>
   );
 }
