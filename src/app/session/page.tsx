@@ -1,22 +1,18 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { hasSessionSettings } from "@/lib/session";
 
 function SessionRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    const savedSettings = sessionStorage.getItem('session-settings');
-    if (savedSettings) {
-      router.replace('/session/welcome');
-    } else {
-      router.replace('/');
-    }
+    router.replace(hasSessionSettings() ? "/session/welcome" : "/");
   }, [router]);
 
   return (
-    <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+    <div className="fixed inset-0 flex items-center justify-center bg-black text-white">
       <div>Redirecting...</div>
     </div>
   );
@@ -24,7 +20,7 @@ function SessionRedirect() {
 
 export default function SessionPage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white">Loading session...</div>}>
+    <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black text-white">Loading session...</div>}>
       <SessionRedirect />
     </Suspense>
   );

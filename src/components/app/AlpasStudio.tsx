@@ -38,38 +38,30 @@ import {
 } from "lucide-react";
 import SessionSettingsDialog from "@/components/app/SessionSettingsDialog";
 import PrintSettingsDialog from "@/components/app/PrintSettingsDialog";
-import { setTemplateImage, clearTemplateImage } from "@/lib/template-cache";
 import { STORAGE_KEYS, getStorageItem, setStorageItem, removeStorageItem } from "@/lib/storage";
+import {
+  requiredShotsFromLayout,
+  saveSessionLayout,
+  saveSessionSettings,
+  saveStudioLayout,
+  loadStudioLayout,
+} from "@/lib/session";
+import type { Layer } from "@/lib/types";
+import {
+  DEFAULT_EVENT_SIZE,
+  DEFAULT_TEMPLATE_PATH,
+  createCameraLayer,
+  createCenturyCameraLayers,
+  editorSizeFromAspect,
+  nextPhotoBoxColor,
+} from "@/lib/default-slots";
 
-export interface Layer {
-  id: string;
-  type: "image" | "camera" | "template";
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  isVisible: boolean;
-  isLocked: boolean;
-  url?: string;
-  bgColor?: string;
-}
+export type { Layer };
 
 type ResizeDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top' | 'right' | 'bottom' | 'left';
 
-const photoBoxColors = [
-  "bg-blue-500/30",
-  "bg-green-500/30",
-  "bg-yellow-500/30",
-  "bg-red-500/30",
-  "bg-purple-500/30",
-  "bg-pink-500/30",
-];
-
 const SNAP_THRESHOLD = 5;
-const DEFAULT_TEMPLATE_PATH = '/templates/landscape/century_layout.png';
-const eventSize = '4x6';
+const eventSize = DEFAULT_EVENT_SIZE;
 
 export default function AlpasStudio() {
   const router = useRouter();
@@ -87,48 +79,54 @@ export default function AlpasStudio() {
   const [isPrintSettingsOpen, setIsPrintSettingsOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
 
-  const setDefaultTemplate = (templateUrl: string, width: number, height: number) => {
+  const applyTemplate = useCallback((templateUrl: string, width: number, height: number, cameras: Layer[]) => {
     const newLayer: Layer = {
       id: `template-${Date.now()}`,
       type: "template",
-      name: 'Template Image',
+      name: "Template Image",
       x: 0,
       y: 0,
-      width: width,
-      height: height,
+      width,
+      height,
       rotation: 0,
       isVisible: true,
       isLocked: false,
       url: templateUrl,
     };
     setCanvasSize({ width, height });
-    setLayers(prev => [newLayer, ...prev.filter(l => l.type !== 'template')]);
+    setLayers([newLayer, ...cameras]);
     setSelectedLayer(newLayer.id);
-  };
-  
+  }, []);
+
   useEffect(() => {
     const savedUserTemplate = getStorageItem(localStorage, STORAGE_KEYS.userTemplate);
-    if (savedUserTemplate) {
-       const img = new window.Image();
-       img.onload = () => {
-           setDefaultTemplate(savedUserTemplate, img.width, img.height);
-       };
-       img.src = savedUserTemplate;
-    } else {
-        const img = new window.Image();
-        img.onload = () => {
-          const aspectRatio = img.naturalWidth / img.naturalHeight;
-          const newWidth = 600;
-          const newHeight = 600 / aspectRatio;
-          setCanvasSize({ width: newWidth, height: newHeight });
-          setDefaultTemplate(DEFAULT_TEMPLATE_PATH, newWidth, newHeight);
-        };
-        img.onerror = (error) => {
-          console.error('Failed to load default landscape template:', error);
-        };
-        img.src = DEFAULT_TEMPLATE_PATH;
-    }
-}, []);
+    const savedStudio = loadStudioLayout();
+    const templateUrl = savedUserTemplate || DEFAULT_TEMPLATE_PATH;
+    const img = new window.Image();
+    img.onload = () => {
+      const size = editorSizeFromAspect(img.naturalWidth / img.naturalHeight);
+      const cameras =
+        savedStudio?.cameras?.length
+          ? savedStudio.cameras
+          : templateUrl === DEFAULT_TEMPLATE_PATH
+            ? createCenturyCameraLayers()
+            : [];
+      applyTemplate(templateUrl, size.width, size.height, cameras);
+    };
+    img.onerror = (error) => {
+      console.error("Failed to load template:", error);
+    };
+    img.src = templateUrl;
+  }, [applyTemplate]);
+
+  useEffect(() => {
+    if (layers.length === 0) return;
+    saveStudioLayout({
+      canvasWidth: canvasSize.width,
+      canvasHeight: canvasSize.height,
+      cameras: layers.filter((layer) => layer.type === "camera"),
+    });
+  }, [canvasSize.height, canvasSize.width, layers]);
 
   const updateLayer = useCallback((id: string, newProps: Partial<Layer>) => {
     setLayers((prevLayers) =>
@@ -255,11 +253,8 @@ export default function AlpasStudio() {
 
           const img = new window.Image();
           img.onload = () => {
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            const newWidth = 600;
-            const newHeight = 600 / aspectRatio;
-            setCanvasSize({ width: newWidth, height: newHeight });
-            setDefaultTemplate(dataUrl, newWidth, newHeight);
+            const size = editorSizeFromAspect(img.naturalWidth / img.naturalHeight);
+            applyTemplate(dataUrl, size.width, size.height, []);
           };
           img.src = dataUrl;
 
@@ -274,21 +269,18 @@ export default function AlpasStudio() {
 
   const addCameraLayer = () => {
     const cameraLayers = layers.filter((l) => l.type === "camera");
-    const colorIndex = cameraLayers.length % photoBoxColors.length;
-
-    const newLayer: Layer = {
-      id: `camera-${Date.now()}`,
-      type: "camera",
-      name: `Photo ${cameraLayers.length + 1}`,
-      x: 10,
-      y: 10,
-      width: 150,
-      height: 150,
-      rotation: 0,
-      isVisible: true,
-      isLocked: false,
-      bgColor: photoBoxColors[colorIndex],
-    };
+    const newLayer = createCameraLayer(
+      {
+        name: `Photo ${cameraLayers.length + 1}`,
+        x: 10,
+        y: 10,
+        width: 150,
+        height: 150,
+      },
+      cameraLayers.length
+    );
+    newLayer.id = `camera-${Date.now()}`;
+    newLayer.bgColor = nextPhotoBoxColor(cameraLayers.length);
     setLayers([newLayer, ...layers]);
     setSelectedLayer(newLayer.id);
   };
@@ -299,11 +291,8 @@ export default function AlpasStudio() {
         removeStorageItem(localStorage, STORAGE_KEYS.userTemplate);
         const img = new window.Image();
         img.onload = () => {
-          const aspectRatio = img.naturalWidth / img.naturalHeight;
-          const newWidth = 600;
-          const newHeight = 600 / aspectRatio;
-          setCanvasSize({ width: newWidth, height: newHeight });
-          setDefaultTemplate(DEFAULT_TEMPLATE_PATH, newWidth, newHeight);
+          const size = editorSizeFromAspect(img.naturalWidth / img.naturalHeight);
+          applyTemplate(DEFAULT_TEMPLATE_PATH, size.width, size.height, createCenturyCameraLayers());
         };
         img.onerror = () => {
           setLayers(layers.filter(layer => layer.id !== id));
@@ -427,37 +416,17 @@ export default function AlpasStudio() {
     setDraggedLayerId(null);
   };
 
-  const cameraLayersCount = layers.filter(l => l.type === 'camera').length;
+  const cameraLayersCount = requiredShotsFromLayout(layers);
 
   const handleStartSession = (settings: { countdown: number; filter: string }) => {
-    // Separate the template image URL from the rest of the layer data.
-    const templateLayer = layers.find(l => l.type === 'template');
-    const layoutWithoutTemplateUrl = layers.map(l => {
-      if (l.type === 'template') {
-        const { url, ...rest } = l;
-        return rest;
-      }
-      return l;
-    });
-
-    // Store template URL in both in-memory cache and sessionStorage for persistence
-    if (templateLayer && templateLayer.url) {
-      setTemplateImage(templateLayer.url);
-      setStorageItem(sessionStorage, STORAGE_KEYS.templateUrl, templateLayer.url);
-    } else {
-      clearTemplateImage();
-      removeStorageItem(sessionStorage, STORAGE_KEYS.templateUrl);
-    }
-    setStorageItem(sessionStorage, STORAGE_KEYS.layout, JSON.stringify(layoutWithoutTemplateUrl));
-
-    sessionStorage.setItem('session-settings', JSON.stringify({
+    saveSessionLayout(layers);
+    saveSessionSettings({
       photoCount: cameraLayersCount,
       countdown: settings.countdown,
       filter: settings.filter,
-      size: eventSize
-    }));
-
-    router.push('/session/welcome');
+      size: eventSize,
+    });
+    router.push("/session/welcome");
   };
 
   return (

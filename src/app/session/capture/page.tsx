@@ -1,44 +1,35 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import PhotoCapture from '@/components/app/PhotoCapture';
+import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import PhotoCapture from "@/components/app/PhotoCapture";
+import { loadSessionSettings, setCapturedPhotos, type SessionSettings } from "@/lib/session";
 
 function CaptureScreen() {
   const router = useRouter();
-  const [sessionSettings, setSessionSettings] = useState<{
-    photoCount: number;
-    countdown: number;
-    filter: string;
-    size: string;
-  } | null>(null);
+  const [sessionSettings, setSessionSettings] = useState<SessionSettings | null>(null);
 
   useEffect(() => {
-    const savedSettings = sessionStorage.getItem('session-settings');
-    if (savedSettings) {
-      try {
-        setSessionSettings(JSON.parse(savedSettings));
-      } catch (error) {
-        console.error('Error parsing session settings:', error);
-        router.replace('/studio');
-      }
-    } else {
-      router.replace('/studio');
+    const settings = loadSessionSettings();
+    if (!settings) {
+      router.replace("/studio");
+      return;
     }
+    setSessionSettings(settings);
   }, [router]);
 
   const handleCaptureComplete = (photos: string[]) => {
-    sessionStorage.setItem('captured-photos', JSON.stringify(photos));
-    router.push('/session/preview');
+    setCapturedPhotos(photos);
+    router.push("/session/preview");
   };
 
   const handleExit = () => {
-    router.push('/session/welcome');
+    router.push("/session/welcome");
   };
 
   if (!sessionSettings) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-black text-white">
         <div>Loading camera...</div>
       </div>
     );
@@ -56,7 +47,7 @@ function CaptureScreen() {
 
 export default function CapturePage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white">Loading camera...</div>}>
+    <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black text-white">Loading camera...</div>}>
       <CaptureScreen />
     </Suspense>
   );

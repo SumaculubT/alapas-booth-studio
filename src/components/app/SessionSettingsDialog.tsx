@@ -90,6 +90,7 @@ export default function SessionSettingsDialog({
                   <SelectItem value="sepia">Sepia</SelectItem>
                 </SelectContent>
               </Select>
+               <p className="mt-2 text-xs text-muted-foreground">Filters are not applied yet.</p>
                <Badge variant="outline" className="mt-2">Coming Soon</Badge>
             </div>
           </div>

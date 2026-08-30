@@ -1,85 +1,81 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect, useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
-import welcomeImage from '@/lib/welcome.webp';
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+import welcomeImage from "@/lib/welcome.webp";
+import { clearCapturedPhotos, loadSessionSettings, resetSession, type SessionSettings } from "@/lib/session";
 
 function WelcomeScreen() {
   const router = useRouter();
-  const [sessionSettings, setSessionSettings] = useState<{
-    photoCount: number;
-    countdown: number;
-    filter: string;
-    size: string;
-  } | null>(null);
+  const startingRef = useRef(false);
+  const [sessionSettings, setSessionSettings] = useState<SessionSettings | null>(null);
 
   useEffect(() => {
-    const savedSettings = sessionStorage.getItem('session-settings');
-    if (savedSettings) {
-      try {
-        setSessionSettings(JSON.parse(savedSettings));
-      } catch (error) {
-        console.error('Error parsing session settings:', error);
-        router.replace('/studio');
-      }
-    } else {
-      router.replace('/studio');
+    const settings = loadSessionSettings();
+    if (!settings) {
+      router.replace("/studio");
+      return;
     }
+    setSessionSettings(settings);
   }, [router]);
 
   const handleStart = useCallback(() => {
-    if (!sessionSettings) return;
-    router.push('/session/capture');
+    if (!sessionSettings || startingRef.current) return;
+    startingRef.current = true;
+    clearCapturedPhotos();
+    router.push("/session/capture");
   }, [sessionSettings, router]);
 
   const handleExit = useCallback(() => {
-    sessionStorage.removeItem('captured-photos');
-    router.push('/studio');
+    resetSession({ keepTemplate: true, keepSettings: true });
+    router.push("/studio");
   }, [router]);
 
   useEffect(() => {
     if (!sessionSettings) return;
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
+      if (event.code === "Space") {
         event.preventDefault();
         handleStart();
       }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleStart, sessionSettings]);
 
   if (!sessionSettings) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-black text-white">
         <div>Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black cursor-pointer" onClick={(e) => { if (e.target === e.currentTarget) handleStart(); }}>
-      <Image src={welcomeImage} alt="Welcome to the photo booth" fill objectFit="cover" placeholder="blur" />
+    <div className="fixed inset-0 cursor-pointer bg-black" onClick={handleStart}>
+      <Image
+        src={welcomeImage}
+        alt="Welcome to the photo booth"
+        fill
+        className="object-cover"
+        placeholder="blur"
+      />
       <Button
-        onClick={(e) => {
-          e.stopPropagation();
+        onClick={(event) => {
+          event.stopPropagation();
           handleExit();
         }}
         variant="ghost"
         size="icon"
-        className="absolute top-4 left-4 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 text-white hover:text-white z-10"
+        aria-label="Back to studio"
+        className="absolute z-10 h-12 w-12 rounded-full bg-black/30 text-white hover:bg-black/50 hover:text-white [top:max(1rem,env(safe-area-inset-top))] [left:max(1rem,env(safe-area-inset-left))]"
       >
         <X size={32} />
       </Button>
-      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white text-center p-4 bg-black/50 rounded-xl">
+      <div className="absolute left-1/2 -translate-x-1/2 rounded-xl bg-black/50 p-4 text-center text-white [bottom:max(4rem,env(safe-area-inset-bottom))]">
         <h1 className="text-2xl font-bold">Touch the screen or press spacebar to start!</h1>
       </div>
     </div>
@@ -88,7 +84,7 @@ function WelcomeScreen() {
 
 export default function WelcomePage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white">Loading...</div>}>
+    <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black text-white">Loading...</div>}>
       <WelcomeScreen />
     </Suspense>
   );

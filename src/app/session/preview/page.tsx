@@ -1,116 +1,67 @@
-'use client';
+"use client";
 
-import { Suspense, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import PhotoStripPreview from '@/components/app/PhotoStripPreview';
-import { getTemplateImage, setTemplateImage } from '@/lib/template-cache';
-import { STORAGE_KEYS, getStorageItem } from '@/lib/storage';
-
-type Layer = {
-  id: string;
-  type: 'image' | 'camera' | 'template';
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  isVisible: boolean;
-  isLocked: boolean;
-  url?: string;
-  bgColor?: string;
-};
+import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import PhotoStripPreview from "@/components/app/PhotoStripPreview";
+import {
+  getCapturedPhotos,
+  loadSessionLayout,
+  loadSessionSettings,
+  resetSession,
+  type SessionSettings,
+} from "@/lib/session";
+import type { Layer } from "@/lib/types";
 
 function PreviewScreen() {
   const router = useRouter();
   const [templateLayout, setTemplateLayout] = useState<Layer[] | null>(null);
-  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
-  const [sessionSettings, setSessionSettings] = useState<{
-    photoCount: number;
-    countdown: number;
-    filter: string;
-    size: string;
-  } | null>(null);
+  const [capturedPhotos, setCapturedPhotosState] = useState<string[] | null>(null);
+  const [sessionSettings, setSessionSettings] = useState<SessionSettings | null>(null);
 
   useEffect(() => {
-    const savedSettings = sessionStorage.getItem('session-settings');
-    if (savedSettings) {
-      try {
-        setSessionSettings(JSON.parse(savedSettings));
-      } catch (error) {
-        console.error('Error parsing session settings:', error);
-        router.replace('/studio');
-        return;
-      }
-    } else {
-      router.replace('/studio');
+    const settings = loadSessionSettings();
+    if (!settings) {
+      router.replace("/studio");
       return;
     }
+    setSessionSettings(settings);
 
-    const savedLayout = getStorageItem(sessionStorage, STORAGE_KEYS.layout);
-    let savedTemplateImage = getTemplateImage();
-    if (!savedTemplateImage) {
-      savedTemplateImage = getStorageItem(sessionStorage, STORAGE_KEYS.templateUrl);
-      if (savedTemplateImage) {
-        setTemplateImage(savedTemplateImage);
-      }
-    }
-    const savedPhotos = sessionStorage.getItem('captured-photos');
-
-    if (!savedLayout) {
-      router.push('/studio');
+    const layout = loadSessionLayout();
+    if (!layout) {
+      router.replace("/studio");
       return;
-    }
-
-    let layout = JSON.parse(savedLayout);
-    if (savedTemplateImage) {
-      const templateLayer = layout.find((l: Layer) => l.type === 'template');
-      if (templateLayer) {
-        templateLayer.url = savedTemplateImage;
-      } else {
-        layout.unshift({
-          id: 'template-from-storage',
-          type: 'template',
-          name: 'Template Image',
-          x: 0,
-          y: 0,
-          width: 600,
-          height: 400,
-          rotation: 0,
-          isVisible: true,
-          isLocked: false,
-          url: savedTemplateImage,
-        });
-      }
     }
     setTemplateLayout(layout);
 
-    if (savedPhotos) {
-      setCapturedPhotos(JSON.parse(savedPhotos));
+    const photos = getCapturedPhotos();
+    if (photos.length === 0) {
+      router.replace("/session/welcome");
+      return;
     }
+    setCapturedPhotosState(photos);
   }, [router]);
 
   const handleRestart = () => {
-    sessionStorage.removeItem('captured-photos');
-    router.push('/session/welcome');
+    resetSession({ keepTemplate: true, keepSettings: true });
+    router.push("/session/welcome");
   };
 
   const handleExit = () => {
-    sessionStorage.removeItem('captured-photos');
-    router.push('/studio');
+    resetSession({ keepTemplate: true, keepSettings: true });
+    router.push("/studio");
   };
 
-  if (!templateLayout || capturedPhotos.length === 0 || !sessionSettings) {
+  if (!templateLayout || !capturedPhotos || capturedPhotos.length === 0 || !sessionSettings) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-black text-white">
         <div>Loading template...</div>
       </div>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
-      <div className="flex flex-col items-center justify-center w-full space-y-4">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-background p-4 text-foreground sm:p-8">
+      <div className="flex w-full flex-col items-center justify-center space-y-4">
         <PhotoStripPreview
           templateLayout={templateLayout}
           photos={capturedPhotos}
@@ -119,8 +70,18 @@ function PreviewScreen() {
           eventSize={sessionSettings.size}
         />
       </div>
-      <footer className="text-center text-sm text-muted-foreground pt-8">
-        <p>Powered by <a href="https://alpastechph.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Alpas IT Solutions Inc.</a></p>
+      <footer className="pt-8 text-center text-sm text-muted-foreground">
+        <p>
+          Powered by{" "}
+          <a
+            href="https://alpastechph.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-primary"
+          >
+            Alpas IT Solutions Inc.
+          </a>
+        </p>
       </footer>
     </main>
   );
@@ -128,7 +89,7 @@ function PreviewScreen() {
 
 export default function PreviewPage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white">Loading preview...</div>}>
+    <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black text-white">Loading preview...</div>}>
       <PreviewScreen />
     </Suspense>
   );

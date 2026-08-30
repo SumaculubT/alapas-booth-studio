@@ -179,7 +179,7 @@ export default function PrintSettingsDialog({
         <DialogHeader>
           <DialogTitle>Print Settings</DialogTitle>
           <DialogDescription>
-            Configure print settings for your photo strips.
+            These values are saved for the operator. The guest Print button uses a high-resolution 6×4 inch landscape page in the browser print dialog.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
